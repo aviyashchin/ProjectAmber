@@ -2,7 +2,8 @@ const {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
   testTemperatureLoopExists,
-  testBellamyDescriptionsExist
+  testBellamyDescriptionsExist,
+  testPlantGrowthUsesLocalChecks
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -10,6 +11,7 @@ try {
   testWeatherElementsExist();
   testTemperatureLoopExists();
   testBellamyDescriptionsExist();
+  testPlantGrowthUsesLocalChecks();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

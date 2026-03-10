@@ -96,9 +96,26 @@ function testBellamyDescriptionsExist() {
   );
 }
 
+function testPlantGrowthUsesLocalChecks() {
+  const elementsSource = read("scripts/elements.js");
+  const plantActionMatch = elementsSource.match(/function PLANT_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(plantActionMatch, "elements.js should contain PLANT_ACTION body");
+  assert(
+    !plantActionMatch[1].includes("isHeatedBySun("),
+    "PLANT_ACTION should avoid full-column sunlight scans"
+  );
+
+  assert(
+    plantActionMatch[1].includes("surroundedByAdjacentCount(x, y, i, PLANT)"),
+    "PLANT_ACTION should short-circuit crowded plant clusters"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
   testTemperatureLoopExists,
-  testBellamyDescriptionsExist
+  testBellamyDescriptionsExist,
+  testPlantGrowthUsesLocalChecks
 };

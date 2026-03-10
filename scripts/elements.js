@@ -327,10 +327,17 @@ function WATER_ACTION(x, y, i) {
 }
 
 function PLANT_ACTION(x, y, i) {
+  const nearbyPlants = surroundedByAdjacentCount(x, y, i, PLANT);
+  if (nearbyPlants >= 6 && random() < 95) return;
+
   var growChance = 20;
   if (borderingAdjacent(x, y, i, WET_SOIL) !== -1) growChance = 70;
   else if (borderingAdjacent(x, y, i, WATER) !== -1) growChance = 55;
-  else if (typeof isHeatedBySun === "function" && isHeatedBySun(x, y, i)) {
+  else if (
+    y > 0 &&
+    above(y, i, BACKGROUND) !== -1 &&
+    borderingAdjacent(x, y, i, PLANT) !== -1
+  ) {
     growChance = 35;
   }
   doGrow(x, y, i, WATER, growChance);
