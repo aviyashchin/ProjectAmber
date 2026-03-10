@@ -23,16 +23,32 @@ const PEN_SIZES = [2, 4, 8, 16, 32, 64];
 const PEN_SIZE_LABELS = ["1px", "2px", "4px", "8px", "16px", "32px"];
 const DEFAULT_PEN_IDX = 1;
 
-/* Elements listed in the menu */
-// prettier-ignore
-const elementMenuItems = [
-  WALL, SAND, WATER, PLANT,
-  FIRE, SPOUT, WELL, SALT,
-  OIL, WAX, TORCH, ICE,
-  GUNPOWDER, NAPALM, NITRO, C4,
-  LAVA, CRYO, FUSE, MYSTERY,
-  CONCRETE, METHANE, SOIL, ACID,
-  THERMITE, BACKGROUND, ZOMBIE,
+const elementMenuGroups = [
+  {
+    label: "Earth",
+    items: [WALL, SAND, SOIL, CONCRETE]
+  },
+  {
+    label: "Water & Sky",
+    items: [WATER, ICE, SPOUT, WELL]
+  },
+  {
+    label: "Heat & Fire",
+    items: [FIRE, TORCH, LAVA, CRYO]
+  },
+  {
+    label: "Life",
+    items: [PLANT, ZOMBIE]
+  },
+  {
+    label: "Advanced",
+    items: [
+      SALT, OIL, WAX, GUNPOWDER,
+      NAPALM, NITRO, C4, FUSE,
+      MYSTERY, METHANE, ACID, THERMITE,
+      BACKGROUND
+    ]
+  }
 ];
 
 const menuNames = {};
@@ -81,27 +97,30 @@ function initMenu() {
   const menu = document.getElementById("menuWrapper");
 
   /* Set up the wrapper div that holds the element selectors */
-  const elementMenu = document.getElementById("elementTable");
-  elementMenu.style.width =
-    "50%"; /* force browser to scrunch the element menu */
-  const numRows = Math.ceil(
-    elementMenuItems.length / ELEMENT_MENU_ELEMENTS_PER_ROW
-  );
-  var elemIdx = 0;
+  const elementPalette = document.getElementById("elementPalette");
   var i, k;
-  for (i = 0; i < numRows; i++) {
-    const row = elementMenu.insertRow(i);
-    for (k = 0; k < ELEMENT_MENU_ELEMENTS_PER_ROW; k++) {
-      if (elemIdx >= elementMenuItems.length) break;
+  for (i = 0; i < elementMenuGroups.length; i++) {
+    const group = elementMenuGroups[i];
+    const groupWrapper = document.createElement("section");
+    groupWrapper.className = "elementGroup";
 
-      const cell = row.insertCell(k);
+    const groupHeading = document.createElement("h2");
+    groupHeading.className = "elementGroupHeading";
+    groupHeading.textContent = group.label;
+    groupWrapper.appendChild(groupHeading);
+
+    const groupGrid = document.createElement("div");
+    groupGrid.className = "elementGroupGrid";
+    groupWrapper.appendChild(groupGrid);
+
+    for (k = 0; k < group.items.length; k++) {
+      const elemType = group.items[k];
       const elemButton = document.createElement("input");
-      cell.appendChild(elemButton);
+      groupGrid.appendChild(elemButton);
 
       elemButton.type = "button";
       elemButton.className = "elementMenuButton";
 
-      const elemType = elementMenuItems[elemIdx];
       if (!(elemType in menuNames))
         throw "element is missing a canonical name: " + elemType;
       elemButton.value = menuNames[elemType];
@@ -129,9 +148,9 @@ function initMenu() {
         elemButton.classList.add("selectedElementMenuButton");
         SELECTED_ELEM = parseInt(elemButton.id, 10);
       });
-
-      elemIdx++;
     }
+
+    elementPalette.appendChild(groupWrapper);
   }
   document.getElementById(SELECTED_ELEM.toString()).click();
 
