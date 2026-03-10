@@ -953,9 +953,6 @@ function SUN_ACTION(x, y, i) {
       }
     }
   }
-
-  if (doRise(x, y, i, 95, 95)) return;
-  if (doDensityGas(x, y, i, 60)) return;
 }
 
 function CRYO_ACTION(x, y, i) {

@@ -38,6 +38,13 @@ function testWeatherElementsExist() {
   assert(elementsSource.includes("function RAIN_ACTION("), "elements.js should define RAIN_ACTION");
 
   assert(menuSource.includes('menuNames[SUN] = "SUN"'), "menu.js should expose SUN in the menu");
+
+  const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
+  assert(
+    !sunActionMatch[1].includes("doRise(") && !sunActionMatch[1].includes("doDensityGas("),
+    "SUN_ACTION should heat nearby cells without moving"
+  );
 }
 
 function testTemperatureLoopExists() {
