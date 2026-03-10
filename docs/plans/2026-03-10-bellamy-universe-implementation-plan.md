@@ -472,3 +472,37 @@ Add a short "implemented in overnight session" section documenting:
 git add docs/plans/2026-03-10-bellamy-universe-design.md docs/plans/2026-03-10-bellamy-universe-implementation-plan.md
 git commit -m "docs(plan): record Bellamy universe progress"
 ```
+
+## Overnight Session Outcome
+Completed tasks:
+- Task 1
+- Task 2
+- Task 3
+- Task 4 as part of the Bellamy info panel and descriptions
+- Task 5 with an explicit `SUN` element plus lightweight temperature helpers
+- Task 6 with first-pass evaporation and condensation
+- Task 7 with first-pass cloud and rain behavior
+- Task 8 with soil wetting and drying updates
+- Task 9 partially, by tying plant growth more clearly to water and wet soil conditions
+- Task 10 partially, via the in-UI `World Ideas` prompt panel instead of a full `challenges.js` system
+- Task 11 documentation and verification pass
+
+Deviations from the original plan:
+- the execution worktree did not include tracked `scripts/tooltips.js`, `scripts/temperature.js`, or `scripts/challenges.js`, so `tooltips.js` and `temperature.js` were created during implementation and the prompt system was delivered through the UI instead of a separate tracked challenge script
+- the execution worktree does not expose a standalone tracked `TREE` element, so biology tuning was applied to `PLANT`, `SOIL`, `WET_SOIL`, and the existing tree-particle pathway rather than to a new tree material
+
+Verification performed:
+- `node tests/run-canvas-scaling-test.js`
+- `node tests/run-menu-grouping-test.js`
+- `node tests/run-bellamy-universe-test.js`
+- `node --check scripts/elements.js`
+- `node --check scripts/menu.js`
+- `node --check scripts/game.js`
+- `node --check scripts/tooltips.js`
+- `node --check scripts/temperature.js`
+- `Invoke-WebRequest http://localhost:8000 -UseBasicParsing | Select-Object -ExpandProperty StatusCode`
+
+Known remaining work:
+- manual in-browser tuning for feel, balance, and visual polish
+- richer guided-play/challenge flows
+- stronger weather/ecology depth after playtesting

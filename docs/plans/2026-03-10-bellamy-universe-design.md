@@ -457,3 +457,35 @@ Recommended behavior:
 - it should feel playful and legible to Bellamy rather than astronomically realistic
 
 This is still a toy-universe rule, not a real star simulation. The design intent is to make the source of heat visible and paintable without sacrificing the simple world loop.
+
+## Implemented In Overnight Session
+Completed:
+- viewport edge sizing polish using layout viewport sizing instead of raw `100vw`/`window.innerWidth`
+- grouped Bellamy palette categories
+- Bellamy info panel with kid-readable element descriptions
+- world idea prompts embedded in the UI
+- explicit `SUN` element added to the sandbox
+- lightweight temperature helper layer added
+- first-pass water cycle interactions added:
+  - water can heat into steam
+  - steam can condense into cloud or water
+  - clouds can produce rain
+  - rain can wet soil
+  - wet soil can dry in sun
+  - plants grow more strongly around water and wet soil
+
+Important implementation note:
+- this tracked branch does not contain a standalone `TREE` element, only tree-particle growth from wet soil in `particles.js`
+- the overnight session preserved that structure instead of inventing a separate tracked `TREE` material system
+
+Remaining:
+- deeper ecology and recovery loops
+- richer cloud shaping and weather tuning
+- stronger plant/tree differentiation once the tracked branch exposes a clearer tree material model
+- broader prompt/challenge system beyond the lightweight world ideas panel
+- true manual browser tuning pass for visual balance and fun
+
+Risks and tuning areas:
+- the temperature model is intentionally lightweight and may need balance tuning for evaporation frequency
+- `SUN` is a toy anti-gravity heat source, not a physically realistic star
+- the UI grouping is a first pass and may need spacing/color adjustments after real playtesting with Bellamy
