@@ -69,9 +69,11 @@ function init() {
 
   initCursors();
   initElements();
+  if (typeof initTemperature === "function") initTemperature();
   initParticles();
   initSpigots();
   initMenu();
+  if (typeof initTooltips === "function") initTooltips();
   initSoftBody();
 
   /* Initialize imagedata */
@@ -95,6 +97,7 @@ function setFPS(fps) {
   else drawFPSLabel(0);
 }
 function updateGame() {
+  if (typeof applyTemperaturePhysics === "function") applyTemperaturePhysics();
   updateSpigots();
   updateParticles();
 

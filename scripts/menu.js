@@ -30,11 +30,11 @@ const elementMenuGroups = [
   },
   {
     label: "Water & Sky",
-    items: [WATER, ICE, SPOUT, WELL]
+    items: [WATER, RAIN, CLOUD, ICE, SPOUT, WELL]
   },
   {
     label: "Heat & Fire",
-    items: [FIRE, TORCH, LAVA, CRYO]
+    items: [SUN, FIRE, TORCH, LAVA, CRYO]
   },
   {
     label: "Life",
@@ -55,6 +55,9 @@ const menuNames = {};
 menuNames[WALL] = "WALL";
 menuNames[SAND] = "SAND";
 menuNames[WATER] = "WATER";
+menuNames[RAIN] = "RAIN";
+menuNames[CLOUD] = "CLOUD";
+menuNames[SUN] = "SUN";
 menuNames[PLANT] = "PLANT";
 menuNames[FIRE] = "FIRE";
 menuNames[SALT] = "SALT";
@@ -87,6 +90,9 @@ menuNames[ZOMBIE] = "HAND";
  */
 const menuAltColors = {};
 menuAltColors[WATER] = "rgb(0, 130, 255)";
+menuAltColors[RAIN] = "rgb(110, 190, 255)";
+menuAltColors[CLOUD] = "rgb(220, 225, 235)";
+menuAltColors[SUN] = "rgb(255, 210, 80)";
 menuAltColors[WALL] = "rgb(160, 160, 160)";
 menuAltColors[BACKGROUND] = "rgb(200, 100, 200)";
 menuAltColors[WELL] = "rgb(158, 13, 33)";
@@ -123,7 +129,10 @@ function initMenu() {
 
       if (!(elemType in menuNames))
         throw "element is missing a canonical name: " + elemType;
-      elemButton.value = menuNames[elemType];
+      elemButton.value =
+        typeof getElementDisplayName === "function"
+          ? getElementDisplayName(elemType)
+          : menuNames[elemType];
 
       const elemColorRGBA = elemType;
       elemButton.id = elemColorRGBA;
@@ -147,6 +156,9 @@ function initMenu() {
           .classList.remove("selectedElementMenuButton");
         elemButton.classList.add("selectedElementMenuButton");
         SELECTED_ELEM = parseInt(elemButton.id, 10);
+        if (typeof updateElementInfoPanel === "function") {
+          updateElementInfoPanel(SELECTED_ELEM);
+        }
       });
     }
 
@@ -191,7 +203,10 @@ function initMenu() {
       const type = SPIGOT_ELEMENT_OPTIONS[k];
       const option = document.createElement("option");
       option.value = type;
-      option.text = menuNames[type];
+      option.text =
+        typeof getElementDisplayName === "function"
+          ? getElementDisplayName(type)
+          : menuNames[type];
       if (i === k) {
         option.selected = "selected";
         SPIGOT_ELEMENTS[i] = type;

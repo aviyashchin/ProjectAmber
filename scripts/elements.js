@@ -105,6 +105,9 @@ const CHILLED_ICE = __inGameColor(20, 153, 220);
 const LAVA = __inGameColor(245, 110, 40);
 const ROCK = __inGameColor(68, 40, 8);
 const STEAM = __inGameColor(195, 214, 235);
+const CLOUD = __inGameColor(220, 228, 236);
+const RAIN = __inGameColor(90, 170, 255);
+const SUN = __inGameColor(255, 210, 80);
 const CRYO = __inGameColor(0, 213, 255);
 const MYSTERY = __inGameColor(162, 232, 196);
 const METHANE = __inGameColor(140, 140, 140);
@@ -156,6 +159,9 @@ const elements = new Uint32Array([
   LAVA,
   ROCK,
   STEAM,
+  CLOUD,
+  RAIN,
+  SUN,
   CRYO,
   MYSTERY,
   METHANE,
@@ -199,6 +205,9 @@ const elementActions = [
   LAVA_ACTION,
   ROCK_ACTION,
   STEAM_ACTION,
+  CLOUD_ACTION,
+  RAIN_ACTION,
+  SUN_ACTION,
   CRYO_ACTION,
   MYSTERY_ACTION,
   METHANE_ACTION,
@@ -265,6 +274,7 @@ function initElements() {
   GAS_PERMEABLE[ROCK] = null;
   GAS_PERMEABLE[CRYO] = null;
   GAS_PERMEABLE[MYSTERY] = null;
+  GAS_PERMEABLE[RAIN] = null;
   GAS_PERMEABLE[SOIL] = null;
   GAS_PERMEABLE[WET_SOIL] = null;
   GAS_PERMEABLE[POLLEN] = null;
@@ -293,12 +303,48 @@ function SAND_ACTION(x, y, i) {
 }
 
 function WATER_ACTION(x, y, i) {
+  if (
+    typeof isHeatedBySun === "function" &&
+    typeof getTemperatureAt === "function" &&
+    isHeatedBySun(x, y, i) &&
+    getTemperatureAt(i) >= TEMP_WATER_EVAPORATES &&
+    random() < 6
+  ) {
+    gameImagedata32[i] = STEAM;
+    return;
+  }
+
+  if (random() < 4 && bordering(x, y, i, SUN) !== -1) {
+    if (typeof addTemperatureAt === "function") addTemperatureAt(i, 3);
+    if (random() < 50) {
+      gameImagedata32[i] = STEAM;
+      return;
+    }
+  }
+
   if (doGravity(x, y, i, true, 95)) return;
   if (doDensityLiquid(x, y, i, OIL, 25, 50)) return;
 }
 
 function PLANT_ACTION(x, y, i) {
-  doGrow(x, y, i, WATER, 50);
+  var growChance = 20;
+  if (borderingAdjacent(x, y, i, WET_SOIL) !== -1) growChance = 70;
+  else if (borderingAdjacent(x, y, i, WATER) !== -1) growChance = 55;
+  else if (typeof isHeatedBySun === "function" && isHeatedBySun(x, y, i)) {
+    growChance = 35;
+  }
+  doGrow(x, y, i, WATER, growChance);
+
+  if (
+    typeof getTemperatureAt === "function" &&
+    getTemperatureAt(i) >= TEMP_PLANT_STRESS &&
+    borderingAdjacent(x, y, i, WATER) === -1 &&
+    borderingAdjacent(x, y, i, WET_SOIL) === -1 &&
+    random() < 3
+  ) {
+    gameImagedata32[i] = BACKGROUND;
+    return;
+  }
 
   if (random() < 5) {
     const saltLoc = bordering(x, y, i, SALT);
@@ -797,6 +843,15 @@ function STEAM_ACTION(x, y, i) {
   if (doDensityGas(x, y, i, 70)) return;
   if (doRise(x, y, i, 70, 60)) return;
 
+  if (
+    typeof getTemperatureAt === "function" &&
+    getTemperatureAt(i) <= TEMP_STEAM_CONDENSES &&
+    random() < 6
+  ) {
+    gameImagedata32[i] = y < Math.floor(height / 3) ? CLOUD : WATER;
+    return;
+  }
+
   /* condense due to water */
   if (random() < 5) {
     if (bordering(x, y, i, WATER) !== -1) {
@@ -829,6 +884,78 @@ function STEAM_ACTION(x, y, i) {
       return;
     }
   }
+}
+
+function CLOUD_ACTION(x, y, i) {
+  if (typeof getTemperatureAt === "function" && getTemperatureAt(i) > TEMP_RAIN_CLOUDS) {
+    addTemperatureAt(i, -1);
+  }
+
+  if (doDensityGas(x, y, i, 55)) return;
+  if (doRise(x, y, i, 35, 55)) return;
+
+  if (random() < 8 && borderingAdjacent(x, y, i, CLOUD) !== -1) {
+    const rainLoc = below(y, i, BACKGROUND);
+    if (rainLoc !== -1) {
+      gameImagedata32[rainLoc] = RAIN;
+      if (random() < 40) gameImagedata32[i] = BACKGROUND;
+      return;
+    }
+  }
+
+  if (typeof getTemperatureAt === "function" && getTemperatureAt(i) > TEMP_WATER_EVAPORATES && random() < 4) {
+    gameImagedata32[i] = STEAM;
+  }
+}
+
+function RAIN_ACTION(x, y, i) {
+  if (random() < 35) {
+    const soilLoc = borderingAdjacent(x, y, i, SOIL);
+    if (soilLoc !== -1) {
+      gameImagedata32[soilLoc] = WET_SOIL;
+      gameImagedata32[i] = BACKGROUND;
+      return;
+    }
+  }
+
+  if (random() < 20 && bordering(x, y, i, FIRE) !== -1) {
+    gameImagedata32[i] = STEAM;
+    return;
+  }
+
+  if (doGravity(x, y, i, true, 98)) return;
+
+  gameImagedata32[i] = WATER;
+}
+
+function SUN_ACTION(x, y, i) {
+  const xStart = Math.max(x - 1, 0);
+  const yStart = Math.max(y - 1, 0);
+  const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
+  const yEnd = Math.min(y + 2, MAX_Y_IDX + 1);
+  var xIter, yIter;
+  for (yIter = yStart; yIter !== yEnd; yIter++) {
+    const idxBase = yIter * width;
+    for (xIter = xStart; xIter !== xEnd; xIter++) {
+      const idx = idxBase + xIter;
+      if (idx === i) continue;
+      if (typeof addTemperatureAt === "function") addTemperatureAt(idx, 2);
+
+      const elem = gameImagedata32[idx];
+      if ((elem === WATER || elem === RAIN) && random() < 12) {
+        gameImagedata32[idx] = STEAM;
+      } else if (elem === CLOUD && random() < 8) {
+        gameImagedata32[idx] = STEAM;
+      } else if (elem === ICE && random() < 10) {
+        gameImagedata32[idx] = WATER;
+      } else if ((elem === SOIL || elem === WET_SOIL) && typeof addTemperatureAt === "function") {
+        addTemperatureAt(idx, 1);
+      }
+    }
+  }
+
+  if (doRise(x, y, i, 95, 95)) return;
+  if (doDensityGas(x, y, i, 60)) return;
 }
 
 function CRYO_ACTION(x, y, i) {
@@ -984,6 +1111,15 @@ function SOIL_ACTION(x, y, i) {
       return;
     }
   }
+
+  if (random() < 12) {
+    const rainLoc = aboveAdjacent(x, y, i, RAIN);
+    if (rainLoc !== -1) {
+      gameImagedata32[rainLoc] = BACKGROUND;
+      gameImagedata32[i] = WET_SOIL;
+      return;
+    }
+  }
 }
 
 function WET_SOIL_ACTION(x, y, i) {
@@ -997,6 +1133,18 @@ function WET_SOIL_ACTION(x, y, i) {
   if (doGravity(x, y, i, false, 99)) return;
   if (doDensitySink(x, y, i, WATER, true, 50)) return;
   if (doDensitySink(x, y, i, SALT_WATER, true, 50)) return;
+
+  if (
+    typeof isHeatedBySun === "function" &&
+    typeof getTemperatureAt === "function" &&
+    isHeatedBySun(x, y, i) &&
+    getTemperatureAt(i) >= TEMP_SOIL_DRIES &&
+    borderingAdjacent(x, y, i, WATER) === -1 &&
+    random() < 4
+  ) {
+    gameImagedata32[i] = SOIL;
+    return;
+  }
 
   if (random() < 5) {
     if (random() < 97) {
@@ -1680,7 +1828,14 @@ function uniformBelowAdjacent(x, y, i) {
 
 function gasPermeable(elem) {
   /* optimize for common case */
-  if (elem === BACKGROUND || elem === STEAM || elem === METHANE) return false;
+  if (
+    elem === BACKGROUND ||
+    elem === STEAM ||
+    elem === METHANE ||
+    elem === CLOUD ||
+    elem === SUN
+  )
+    return false;
 
   return elem in GAS_PERMEABLE;
 }
