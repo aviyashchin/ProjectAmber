@@ -23,8 +23,8 @@ const __min_width = 320;
 const __min_height = 240;
 
 /* Size the canvas to fill the viewport while leaving room for the controls below */
-const width = Math.max(window.innerWidth - __horizontal_margin, __min_width);
-const height = Math.max(window.innerHeight - __vertical_margin, __min_height);
+const width = Math.max(document.documentElement.clientWidth - __horizontal_margin, __min_width);
+const height = Math.max(document.documentElement.clientHeight - __vertical_margin, __min_height);
 
 const MAX_FPS = 120;
 const DEFAULT_FPS = 60;

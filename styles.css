@@ -61,7 +61,7 @@ a:hover {
   font-size: 0; /* get rid of extra spacing due to font-size */
   padding-top: 10px;
   margin: 0;
-  width: 100vw;
+  width: 100%;
   min-height: 100vh;
   box-sizing: border-box;
   display: flex;
