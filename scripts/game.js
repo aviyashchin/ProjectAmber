@@ -159,14 +159,8 @@ function draw() {
    * game canvas (at our ingame resolution), and then scaling
    * and transferring it to the displayed canvas.
    */
-  gameCtx.scale(onscreenPixelRatio, onscreenPixelRatio);
-  onscreenCtx.drawImage(
-    gameCanvas,
-    0,
-    0,
-    onscreenScaledWidth,
-    onscreenScaledHeight
-  );
+  onscreenCtx.setTransform(onscreenPixelRatio, 0, 0, onscreenPixelRatio, 0, 0);
+  onscreenCtx.drawImage(gameCanvas, 0, 0, width, height);
 }
 
 function setGameCanvas(elem) {
