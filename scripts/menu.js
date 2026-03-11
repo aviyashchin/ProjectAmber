@@ -309,13 +309,26 @@ function initMenu() {
     tiltStrengthValue.innerText = tiltState.strength.toFixed(2);
   }
 
+  function shouldEnableTiltByDefault() {
+    if (typeof DeviceOrientationEvent === "undefined") return false;
+    if (typeof navigator === "undefined") return false;
+    return !!navigator.maxTouchPoints;
+  }
+
   function enableTiltMotionInBackground() {
     if (!window.projectAmberPlatform || !window.projectAmberPlatform.device) return;
     Promise.resolve(window.projectAmberPlatform.device.enableTilt()).catch(function () {});
   }
 
+  const tiltDefaultEnabled = shouldEnableTiltByDefault();
+  if (tiltDefaultEnabled) {
+    window.setGravityExperimentMode("family32", gravityBucketIndex);
+    enableTiltMotionInBackground();
+  }
+
   tiltModeCheckbox.checked =
-    typeof gravityState !== "undefined" && gravityState.strategy === "family32";
+    tiltDefaultEnabled ||
+    (typeof gravityState !== "undefined" && gravityState.strategy === "family32");
   tiltBucketSlider.min = 0;
   tiltBucketSlider.max = 31;
   tiltBucketSlider.value = gravityBucketIndex.toString(10);

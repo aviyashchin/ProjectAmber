@@ -59,8 +59,8 @@ var lastLoop = 0;
 var frameDebt = 0;
 var lastFPSLabelUpdate = 0;
 const refreshTimes = [];
-var gravityExperimentMode = "family32";
-var gravityBucketCount = 32;
+var gravityExperimentMode = "default";
+var gravityBucketCount = 16;
 var gravityBucketIndex = 0;
 var gravityStrength = 1;
 var tiltTraversalPhase = 0;
@@ -70,7 +70,7 @@ var tiltMotionVectorX = 0;
 var tiltMotionVectorY = 0;
 var tiltMotionVectorZ = 1;
 const gravityState = {
-  strategy: "family32",
+  strategy: "baseline",
   bucket: 0,
   family: 0,
   strength: 1

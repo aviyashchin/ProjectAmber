@@ -315,10 +315,10 @@ function testTiltGravityExperimentSwitchExists() {
   const stylesSource = read("styles.css");
 
   assert(
-    gameSource.includes("var gravityExperimentMode = \"family32\";") &&
-    gameSource.includes("var gravityBucketCount = 32;") &&
+    gameSource.includes("var gravityExperimentMode = \"default\";") &&
+    gameSource.includes("var gravityBucketCount = 16;") &&
     gameSource.includes("const gravityState = {") &&
-    gameSource.includes("strategy: \"family32\"") &&
+    gameSource.includes("strategy: \"baseline\"") &&
     gameSource.includes("const TILT_BUCKET_VECTORS_32 = Object.freeze([") &&
     gameSource.includes("window.enableTiltMotionControls = enableTiltMotionControls;") &&
     gameSource.includes("function handleTiltOrientation(event) {") &&
@@ -362,12 +362,16 @@ function testTiltGravityExperimentSwitchExists() {
     menuSource.includes("const tiltStrengthSlider = document.getElementById(\"tiltStrengthSlider\")") &&
     menuSource.includes("const tiltBucketValue = document.getElementById(\"tiltBucketValue\")") &&
     menuSource.includes("const tiltStrengthValue = document.getElementById(\"tiltStrengthValue\")") &&
+    menuSource.includes("function shouldEnableTiltByDefault() {") &&
     menuSource.includes("function enableTiltMotionInBackground() {") &&
     menuSource.includes("window.projectAmberPlatform.device.enableTilt()") &&
     !menuSource.includes("await window.projectAmberPlatform.device.enableTilt()") &&
+    menuSource.includes("const tiltDefaultEnabled = shouldEnableTiltByDefault();") &&
+    menuSource.includes("if (tiltDefaultEnabled) {") &&
+    menuSource.includes("window.setGravityExperimentMode(\"family32\", gravityBucketIndex);") &&
     menuSource.includes("document.getElementById(\"tiltSceneSandButton\")") &&
     menuSource.includes("document.getElementById(\"tiltDirectionRightButton\")"),
-    "menu.js should wire the tilt debug controls and enable tilt through the platform seam without blocking the click handler"
+    "menu.js should default tilt on only for likely mobile sensor devices and enable it through the platform seam without blocking the click handler"
   );
 
   assert(
