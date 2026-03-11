@@ -8,7 +8,8 @@ const {
   testColorFamiliesStayCoherent,
   testNoTemperatureControlPlaneRemains,
   testMethaneStaysLocalAndCheap,
-  testBlackHoleStaysLocal
+  testBlackHoleStaysLocal,
+  testForceAndGrowthSystemsAreThrottled
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -22,6 +23,7 @@ try {
   testNoTemperatureControlPlaneRemains();
   testMethaneStaysLocalAndCheap();
   testBlackHoleStaysLocal();
+  testForceAndGrowthSystemsAreThrottled();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

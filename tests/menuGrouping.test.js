@@ -33,10 +33,14 @@ function testPaletteUsesBellamyGroups() {
     menuSource.includes('label: "Earth"') &&
     menuSource.includes('label: "Water & Sky"') &&
     menuSource.includes('label: "Heat & Fire"') &&
-    menuSource.includes('label: "Forces"') &&
     menuSource.includes('label: "Life"') &&
     menuSource.includes('label: "Advanced"'),
     "menu.js should define the Bellamy group labels"
+  );
+
+  assert(
+    !menuSource.includes('label: "Forces"'),
+    "menu.js should not expose a separate Forces group in performance-first mode"
   );
 }
 

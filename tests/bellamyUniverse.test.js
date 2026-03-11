@@ -170,9 +170,21 @@ function testWeatherStateAndForceFamilies() {
     "menu.js should group the force family in Heat & Fire"
   );
 
+  assert(
+    !menuSource.includes("label: \"Forces\""),
+    "menu.js should avoid a separate default Forces group in performance-first mode"
+  );
+
+  assert(
+    !menuSource.includes("items: [BLACK_HOLE]") &&
+    !menuSource.includes("MYSTERY, METHANE"),
+    "menu.js should keep the heaviest toys out of the default palette layout"
+  );
+
   const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
   assert(
+    sunActionMatch[1].includes("if (random() < 80) return;") &&
     !sunActionMatch[1].includes("addTemperatureAt(") &&
     sunActionMatch[1].includes("elem === PLANT") &&
     sunActionMatch[1].includes("elem === OIL") &&
@@ -219,8 +231,9 @@ function testMethaneStaysLocalAndCheap() {
 
   assert(methaneActionMatch, "elements.js should contain METHANE_ACTION body");
   assert(
+    methaneActionMatch[1].includes("if (random() < 55) return;") &&
     methaneActionMatch[1].includes("bordering(x, y, i, SUN) !== -1"),
-    "METHANE_ACTION should let SUN ignite methane directly"
+    "METHANE_ACTION should stay sparse and let SUN ignite methane directly"
   );
 
   assert(
@@ -231,14 +244,50 @@ function testMethaneStaysLocalAndCheap() {
 
 function testBlackHoleStaysLocal() {
   const elementsSource = read("scripts/elements.js");
+  const menuSource = read("scripts/menu.js");
   const blackHoleActionMatch = elementsSource.match(/function BLACK_HOLE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
 
   assert(blackHoleActionMatch, "elements.js should contain BLACK_HOLE_ACTION body");
   assert(
+    blackHoleActionMatch[1].includes("if (random() < 92) return;") &&
     !blackHoleActionMatch[1].includes("pullRadius") &&
     !blackHoleActionMatch[1].includes("for (dy =") &&
     !blackHoleActionMatch[1].includes("for (dx ="),
     "BLACK_HOLE_ACTION should avoid radius scans in fast local sandbox mode"
+  );
+
+  assert(
+    menuSource.includes("BLACK_HOLE, METHANE, ACID, THERMITE") &&
+    !menuSource.includes("label: \"Forces\""),
+    "BLACK_HOLE should stay hidden in Advanced instead of its own default group"
+  );
+}
+
+function testForceAndGrowthSystemsAreThrottled() {
+  const elementsSource = read("scripts/elements.js");
+  const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const antiGravityActionMatch = elementsSource.match(/function ANTI_GRAVITY_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const cryoActionMatch = elementsSource.match(/function CRYO_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const steamActionMatch = elementsSource.match(/function STEAM_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const cloudActionMatch = elementsSource.match(/function CLOUD_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const wetSoilActionMatch = elementsSource.match(/function WET_SOIL_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(
+    sunActionMatch[1].includes("if (random() < 80) return;") &&
+    antiGravityActionMatch[1].includes("if (random() < 80) return;") &&
+    cryoActionMatch[1].includes("if (random() < 80) return;"),
+    "force tools should skip most frames in performance-first mode"
+  );
+
+  assert(
+    steamActionMatch[1].includes("if (random() < 45) return;") &&
+    cloudActionMatch[1].includes("if (random() < 55) return;"),
+    "gas elements should skip many frames in performance-first mode"
+  );
+
+  assert(
+    wetSoilActionMatch[1].includes("particles.particleCounts[TREE_PARTICLE] < 6"),
+    "wet soil should cap expensive tree particles aggressively"
   );
 }
 
@@ -252,5 +301,6 @@ module.exports = {
   testColorFamiliesStayCoherent,
   testNoTemperatureControlPlaneRemains,
   testMethaneStaysLocalAndCheap,
-  testBlackHoleStaysLocal
+  testBlackHoleStaysLocal,
+  testForceAndGrowthSystemsAreThrottled
 };

@@ -830,8 +830,10 @@ function ROCK_ACTION(x, y, i) {
 }
 
 function STEAM_ACTION(x, y, i) {
+  if (random() < 45) return;
+
   if (doDensityGas(x, y, i, 70)) return;
-  if (doRise(x, y, i, 70, 60)) return;
+  if (doRise(x, y, i, 55, 35)) return;
 
   /* condense due to water */
   if (random() < 5) {
@@ -858,7 +860,7 @@ function STEAM_ACTION(x, y, i) {
     }
   }
 
-  if (random() < 4 && y < Math.floor(height / 3)) {
+  if (random() < 2 && y < Math.floor(height / 3)) {
     gameImagedata32[i] = CLOUD;
     return;
   }
@@ -873,19 +875,21 @@ function STEAM_ACTION(x, y, i) {
 }
 
 function CLOUD_ACTION(x, y, i) {
-  if (doDensityGas(x, y, i, 55)) return;
-  if (doRise(x, y, i, 35, 45)) return;
+  if (random() < 55) return;
 
-  if (random() < 8 && borderingAdjacent(x, y, i, CLOUD) !== -1) {
+  if (doDensityGas(x, y, i, 45)) return;
+  if (doRise(x, y, i, 20, 25)) return;
+
+  if (random() < 4 && borderingAdjacent(x, y, i, CLOUD) !== -1) {
     const rainLoc = below(y, i, BACKGROUND);
     if (rainLoc !== -1) {
       gameImagedata32[rainLoc] = RAIN;
-      if (random() < 30) gameImagedata32[i] = BACKGROUND;
+      if (random() < 20) gameImagedata32[i] = BACKGROUND;
       return;
     }
   }
 
-  if (random() < 2 && borderingAdjacent(x, y, i, SUN) !== -1) {
+  if (random() < 1 && borderingAdjacent(x, y, i, SUN) !== -1) {
     gameImagedata32[i] = STEAM;
   }
 }
@@ -916,6 +920,8 @@ function RAIN_ACTION(x, y, i) {
 }
 
 function SUN_ACTION(x, y, i) {
+  if (random() < 80) return;
+
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);
   const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
@@ -952,6 +958,8 @@ function SUN_ACTION(x, y, i) {
 }
 
 function ANTI_GRAVITY_ACTION(x, y, i) {
+  if (random() < 80) return;
+
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 2, 0);
   const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
@@ -976,7 +984,7 @@ function ANTI_GRAVITY_ACTION(x, y, i) {
       }
 
       const aboveIdx = yIter > 0 ? idx - width : -1;
-      if (aboveIdx !== -1 && gameImagedata32[aboveIdx] === BACKGROUND && random() < 40) {
+      if (aboveIdx !== -1 && gameImagedata32[aboveIdx] === BACKGROUND && random() < 25) {
         gameImagedata32[aboveIdx] = elem;
         gameImagedata32[idx] = BACKGROUND;
       }
@@ -985,6 +993,8 @@ function ANTI_GRAVITY_ACTION(x, y, i) {
 }
 
 function CRYO_ACTION(x, y, i) {
+  if (random() < 80) return;
+
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);
   const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
@@ -1000,13 +1010,13 @@ function CRYO_ACTION(x, y, i) {
 
       if (borderingElem === CRYO || borderingElem === BLACK_HOLE) continue;
 
-      if ((borderingElem === WATER || borderingElem === RAIN) && random() < 25) {
+      if ((borderingElem === WATER || borderingElem === RAIN) && random() < 18) {
         gameImagedata32[idx] = ICE;
-      } else if (borderingElem === STEAM && random() < 18) {
+      } else if (borderingElem === STEAM && random() < 12) {
         gameImagedata32[idx] = CLOUD;
-      } else if (borderingElem === CLOUD && random() < 12) {
+      } else if (borderingElem === CLOUD && random() < 8) {
         gameImagedata32[idx] = RAIN;
-      } else if (borderingElem === LAVA && random() < 30) {
+      } else if (borderingElem === LAVA && random() < 18) {
         gameImagedata32[idx] = ROCK;
       }
     }
@@ -1014,20 +1024,15 @@ function CRYO_ACTION(x, y, i) {
 }
 
 function BLACK_HOLE_ACTION(x, y, i) {
-  if (random() < 45) {
-    const targetIdx = borderingAdjacent(x, y, i, BACKGROUND);
-    if (targetIdx !== -1) {
-      const mealIdx =
-        borderingAdjacent(x, y, i, SAND) !== -1 ? borderingAdjacent(x, y, i, SAND) :
-        borderingAdjacent(x, y, i, WATER) !== -1 ? borderingAdjacent(x, y, i, WATER) :
-        borderingAdjacent(x, y, i, RAIN) !== -1 ? borderingAdjacent(x, y, i, RAIN) :
-        borderingAdjacent(x, y, i, METHANE) !== -1 ? borderingAdjacent(x, y, i, METHANE) :
-        borderingAdjacent(x, y, i, FIRE);
-      if (mealIdx !== -1) {
-        gameImagedata32[mealIdx] = BACKGROUND;
-      }
-    }
-  }
+  if (random() < 92) return;
+
+  var mealIdx = bordering(x, y, i, SAND);
+  if (mealIdx === -1) mealIdx = bordering(x, y, i, WATER);
+  if (mealIdx === -1) mealIdx = bordering(x, y, i, RAIN);
+  if (mealIdx === -1) mealIdx = bordering(x, y, i, METHANE);
+  if (mealIdx === -1) mealIdx = bordering(x, y, i, FIRE);
+
+  if (mealIdx !== -1) gameImagedata32[mealIdx] = BACKGROUND;
 }
 
 function MYSTERY_ACTION(x, y, i) {
@@ -1090,6 +1095,8 @@ function MYSTERY_ACTION(x, y, i) {
 }
 
 function METHANE_ACTION(x, y, i) {
+  if (random() < 55) return;
+
   if (
     random() < 25 &&
     (bordering(x, y, i, FIRE) !== -1 || bordering(x, y, i, SUN) !== -1)
@@ -1098,7 +1105,7 @@ function METHANE_ACTION(x, y, i) {
     return;
   }
 
-  if (doRise(x, y, i, 30, 45)) return;
+  if (doRise(x, y, i, 18, 20)) return;
 }
 
 function SOIL_ACTION(x, y, i) {
@@ -1159,10 +1166,9 @@ function WET_SOIL_ACTION(x, y, i) {
       return;
     }
 
-    /* make tree generation less likely */
-    if (random() < 35) return;
-
     if (
+      particles.particleCounts[TREE_PARTICLE] < 6 &&
+      random() >= 85 &&
       aboveAdjacent(x, y, i, BACKGROUND) !== -1 &&
       (belowAdjacent(x, y, i, SOIL) !== -1 ||
         belowAdjacent(x, y, i, WALL) !== -1)

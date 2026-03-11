@@ -37,10 +37,6 @@ const elementMenuGroups = [
     items: [SUN, ANTI_GRAVITY, FIRE, TORCH, LAVA, CRYO]
   },
   {
-    label: "Forces",
-    items: [BLACK_HOLE]
-  },
-  {
     label: "Life",
     items: [PLANT, ZOMBIE]
   },
@@ -49,7 +45,7 @@ const elementMenuGroups = [
     items: [
       SALT, OIL, WAX, GUNPOWDER,
       NAPALM, NITRO, C4, FUSE,
-      MYSTERY, METHANE, ACID, THERMITE,
+      BLACK_HOLE, METHANE, ACID, THERMITE,
       BACKGROUND
     ]
   }
