@@ -1625,43 +1625,58 @@ function borderingAdjacentCount(x, y, i, type) {
   return surroundedByAdjacentCount(x, y, i, type);
 }
 
-const GRAVITY_BUCKET_OFFSETS_16 = [
-  [[0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0]],
-  [[1, 2], [1, 1], [0, 1], [2, 1], [1, 0]],
-  [[1, 1], [1, 0], [1, 2], [2, 1], [0, 1]],
-  [[2, 1], [1, 1], [1, 0], [1, 2], [2, 0]],
-  [[1, 0], [1, 1], [1, -1], [0, 1], [0, -1]],
-  [[2, -1], [1, -1], [1, 0], [1, -2], [2, 0]],
-  [[1, -1], [1, 0], [1, -2], [2, -1], [0, -1]],
-  [[1, -2], [1, -1], [0, -1], [2, -1], [1, 0]],
-  [[0, -1], [-1, -1], [1, -1], [-1, 0], [1, 0]],
-  [[-1, -2], [-1, -1], [0, -1], [-2, -1], [-1, 0]],
-  [[-1, -1], [-1, 0], [-1, -2], [-2, -1], [0, -1]],
-  [[-2, -1], [-1, -1], [-1, 0], [-1, -2], [-2, 0]],
-  [[-1, 0], [-1, 1], [-1, -1], [0, 1], [0, -1]],
-  [[-2, 1], [-1, 1], [-1, 0], [-1, 2], [-2, 0]],
-  [[-1, 1], [-1, 0], [-1, 2], [-2, 1], [0, 1]],
-  [[-1, 2], [-1, 1], [0, 1], [-2, 1], [-1, 0]]
+const GRAVITY_CANDIDATES_16 = [
+  [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0]
+];
+const GRAVITY_CANDIDATES_32 = [
+  [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0], [0, 2], [-1, 2], [1, 2]
+];
+const GRAVITY_CANDIDATES_RADIUS_2 = [
+  [0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1]
+];
+const GRAVITY_CANDIDATES_RADIUS_2_32 = [
+  [0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1], [1, 1], [-2, 2], [2, 2]
 ];
 
-const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = [
-  [[0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1]],
-  [[1, 2], [0, 2], [1, 1], [2, 2], [0, 1]],
-  [[1, 2], [1, 1], [2, 1], [0, 2], [1, 0]],
-  [[2, 1], [1, 1], [2, 0], [1, 2], [0, 1]],
-  [[2, 0], [1, 0], [2, 1], [2, -1], [1, 1]],
-  [[2, -1], [1, -1], [2, 0], [1, -2], [1, 0]],
-  [[1, -2], [1, -1], [2, -1], [0, -2], [1, 0]],
-  [[1, -2], [0, -2], [1, -1], [2, -2], [0, -1]],
-  [[0, -2], [-1, -2], [1, -2], [0, -1], [-1, -1]],
-  [[-1, -2], [0, -2], [-1, -1], [-2, -2], [0, -1]],
-  [[-1, -2], [-1, -1], [-2, -1], [0, -2], [-1, 0]],
-  [[-2, -1], [-1, -1], [-2, 0], [-1, -2], [0, -1]],
-  [[-2, 0], [-1, 0], [-2, 1], [-2, -1], [-1, 1]],
-  [[-2, 1], [-1, 1], [-2, 0], [-1, 2], [-1, 0]],
-  [[-1, 2], [-1, 1], [-2, 1], [0, 2], [-1, 0]],
-  [[-1, 2], [0, 2], [-1, 1], [-2, 2], [0, 1]]
-];
+function __rotateGravityCandidates(baseCandidates, bucketCount) {
+  const buckets = [];
+  var bucketIdx;
+  for (bucketIdx = 0; bucketIdx < bucketCount; bucketIdx++) {
+    const angle = (bucketIdx * TWO_PI) / bucketCount;
+    const sinAngle = Math.sin(angle);
+    const cosAngle = Math.cos(angle);
+    const ranked = [];
+    var candidateIdx;
+    for (candidateIdx = 0; candidateIdx < baseCandidates.length; candidateIdx++) {
+      const candidate = baseCandidates[candidateIdx];
+      const worldX = candidate[0];
+      const worldY = candidate[1];
+      const score = worldX * sinAngle + worldY * cosAngle;
+      ranked.push({
+        offset: candidate,
+        score: score
+      });
+    }
+    ranked.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      const aRadius = Math.abs(a.offset[0]) + Math.abs(a.offset[1]);
+      const bRadius = Math.abs(b.offset[0]) + Math.abs(b.offset[1]);
+      return aRadius - bRadius;
+    });
+
+    const bucketOffsets = [];
+    for (candidateIdx = 0; candidateIdx < ranked.length; candidateIdx++) {
+      bucketOffsets.push(ranked[candidateIdx].offset);
+    }
+    buckets.push(bucketOffsets);
+  }
+  return buckets;
+}
+
+const GRAVITY_BUCKET_OFFSETS_16 = __rotateGravityCandidates(GRAVITY_CANDIDATES_16, 16);
+const GRAVITY_BUCKET_OFFSETS_32 = __rotateGravityCandidates(GRAVITY_CANDIDATES_32, 32);
+const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = __rotateGravityCandidates(GRAVITY_CANDIDATES_RADIUS_2, 16);
+const GRAVITY_BUCKET_OFFSETS_RADIUS_2_32 = __rotateGravityCandidates(GRAVITY_CANDIDATES_RADIUS_2_32, 32);
 
 function getGravityMode() {
   return gravityExperimentMode;
@@ -1696,11 +1711,15 @@ function doExperimentalGravity(x, y, i, targetElem) {
   const mode = getGravityMode();
   if (mode === "default") return -1;
 
-  const bucketIdx = getGravityBucketIndex() & 15;
+  const bucketIdx = getGravityBucketIndex();
   if (getGravityMode() === "bucket16")
     return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_16[bucketIdx], targetElem);
+  if (getGravityMode() === "bucket32")
+    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_32[bucketIdx], targetElem);
   if (getGravityMode() === "radius2")
     return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx], targetElem);
+  if (getGravityMode() === "radius2-32")
+    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_RADIUS_2_32[bucketIdx], targetElem);
 
   return -1;
 }
@@ -1708,12 +1727,14 @@ function doExperimentalGravity(x, y, i, targetElem) {
 function doGravity(x, y, i, fallAdjacent, chance) {
   if (random() >= chance) return false;
 
+  const mode = getGravityMode();
   const experimentalMove = doExperimentalGravity(x, y, i, BACKGROUND);
   if (experimentalMove !== -1) {
     gameImagedata32[experimentalMove] = gameImagedata32[i];
     gameImagedata32[i] = BACKGROUND;
     return true;
   }
+  if (mode !== "default") return false;
 
   if (y === MAX_Y_IDX) {
     gameImagedata32[i] = BACKGROUND;
@@ -1747,9 +1768,11 @@ function doRise(x, y, i, riseChance, adjacentChance) {
   var newI = -1;
   const mode = getGravityMode();
   if (mode !== "default" && random() < riseChance) {
-    const bucketIdx = getGravityBucketIndex() & 15;
-    const offsets =
-      mode === "bucket16" ? GRAVITY_BUCKET_OFFSETS_16[bucketIdx] : GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx];
+    const bucketIdx = getGravityBucketIndex();
+    var offsets = GRAVITY_BUCKET_OFFSETS_16[bucketIdx];
+    if (mode === "bucket32") offsets = GRAVITY_BUCKET_OFFSETS_32[bucketIdx];
+    else if (mode === "radius2") offsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx];
+    else if (mode === "radius2-32") offsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2_32[bucketIdx];
     var inverseOffsets = [];
     var iter;
     for (iter = 0; iter < offsets.length; iter++) {

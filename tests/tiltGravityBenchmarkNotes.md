@@ -3,7 +3,7 @@
 ## Sand-heavy scene
 
 - Fill the upper half of the world with `SAND`.
-- Compare `default`, `bucket16`, and `radius2`.
+- Compare `default`, `bucket16`, `bucket32`, `radius2`, and `radius2-32`.
 - Watch settling speed, diagonal slumping, and FPS.
 
 ## Mixed water scene
@@ -29,6 +29,8 @@
 - `setGravityExperimentMode("default")`
 - `setGravityExperimentMode("bucket16", 0)`
 - `setGravityExperimentMode("bucket16", 4)`
+- `setGravityExperimentMode("bucket32", 8)`
 - `setGravityExperimentMode("radius2", 0)`
 - `setGravityExperimentMode("radius2", 4)`
+- `setGravityExperimentMode("radius2-32", 8)`
 - `setGravityBucketIndex(8)`

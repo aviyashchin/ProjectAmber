@@ -65,6 +65,9 @@ var gravityBucketIndex = 0;
 
 window.setGravityExperimentMode = function (mode, bucketIdx) {
   gravityExperimentMode = mode || "default";
+  if (gravityExperimentMode === "bucket32" || gravityExperimentMode === "radius2-32")
+    gravityBucketCount = 32;
+  else gravityBucketCount = 16;
   if (typeof bucketIdx === "number") gravityBucketIndex = bucketIdx;
 };
 

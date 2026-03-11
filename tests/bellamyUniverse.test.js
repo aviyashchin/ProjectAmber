@@ -329,16 +329,27 @@ function testTiltGravityCandidatesStayLocal() {
   const elementsSource = read("scripts/elements.js");
 
   assert(
-    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_16 = [") &&
-    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = ["),
-    "elements.js should define both local-bias and radius-2 gravity candidate tables"
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_16 =") &&
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_32 =") &&
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_RADIUS_2 =") &&
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_RADIUS_2_32 ="),
+    "elements.js should define 16-angle and 32-angle gravity candidate tables"
   );
 
   assert(
     elementsSource.includes("function doExperimentalGravity(") &&
     elementsSource.includes("getGravityMode() === \"bucket16\"") &&
-    elementsSource.includes("getGravityMode() === \"radius2\""),
-    "elements.js should route gravity experiments through a small helper"
+    elementsSource.includes("getGravityMode() === \"bucket32\"") &&
+    elementsSource.includes("getGravityMode() === \"radius2\"") &&
+    elementsSource.includes("getGravityMode() === \"radius2-32\""),
+    "elements.js should route all gravity experiments through a small helper"
+  );
+
+  const gravityMatch = elementsSource.match(/function doGravity\(x, y, i, fallAdjacent, chance\) \{([\s\S]*?)\n\}/);
+  assert(gravityMatch, "elements.js should contain doGravity body");
+  assert(
+    gravityMatch[1].includes("if (mode !== \"default\") return false;"),
+    "doGravity should not fall back to the old downward logic in experimental modes"
   );
 
   assert(
@@ -355,7 +366,9 @@ function testTiltGravityBenchmarkNotesExist() {
     benchmarkNotes.includes("Sand-heavy scene") &&
     benchmarkNotes.includes("Mixed water scene") &&
     benchmarkNotes.includes("Gas-heavy scene") &&
-    benchmarkNotes.includes("Bucket boundary stability"),
+    benchmarkNotes.includes("Bucket boundary stability") &&
+    benchmarkNotes.includes("bucket32") &&
+    benchmarkNotes.includes("radius2-32"),
     "tilt gravity benchmark notes should define the comparison scenes"
   );
 }
