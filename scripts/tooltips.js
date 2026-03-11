@@ -3,13 +3,15 @@
  */
 
 const BELLAMY_ELEMENT_INFO = {
-  Sun: "A tiny warm star. It rises and heats nearby things.",
+  Sun: "A tiny warm star. It heats nearby things.",
   Sand: "Falls, piles up, and makes hills.",
   Water: "Flows downhill and fills spaces.",
-  Rain: "Falls from clouds and soaks the ground.",
+  Rain: "Falling water from clouds.",
   Cloud: "Cool mist that can rain",
   Steam: "Hot water that rises",
   Fire: "Hot and hungry. It spreads through burnable stuff.",
+  Cryo: "A tiny cold star. It freezes nearby things.",
+  "Black Hole": "A super gravity spot that pulls nearby things in.",
   Soil: "Holds water for plants",
   "Wet Soil": "A soaked sponge for roots and seeds.",
   Plant: "Soft life that spreads when water is nearby.",
@@ -25,7 +27,9 @@ const WORLD_IDEAS = [
   "Make Rain: Put Sun under Water and watch steam climb.",
   "Grow a Forest: Wet the Soil, drop Seeds, then add some Rain.",
   "Dry a Swamp: Use Sun and Fire to chase the water away.",
-  "Cool a Volcano: Pour Rain on Lava and look for new Rock."
+  "Cool a Volcano: Pour Rain on Lava and look for new Rock.",
+  "Build a Storm: Stack Clouds until they sag and start raining.",
+  "Bend Space: Drop a Black Hole and watch nearby stuff fall inward."
 ];
 
 function getElementDisplayName(elemType) {
@@ -47,6 +51,8 @@ function getElementInfoText(elemType) {
   if (label === "CLOUD") return BELLAMY_ELEMENT_INFO.Cloud;
   if (label === "STEAM") return BELLAMY_ELEMENT_INFO.Steam;
   if (label === "FIRE") return BELLAMY_ELEMENT_INFO.Fire;
+  if (label === "CRYO") return BELLAMY_ELEMENT_INFO.Cryo;
+  if (label === "BLACK HOLE") return BELLAMY_ELEMENT_INFO["Black Hole"];
   if (label === "PLANT") return BELLAMY_ELEMENT_INFO.Plant;
   if (label === "TREE") return BELLAMY_ELEMENT_INFO.Tree;
   if (label === "ICE") return BELLAMY_ELEMENT_INFO.Ice;

@@ -46,6 +46,7 @@ const elementMenuGroups = [
       SALT, OIL, WAX, GUNPOWDER,
       NAPALM, NITRO, C4, FUSE,
       MYSTERY, METHANE, ACID, THERMITE,
+      BLACK_HOLE,
       BACKGROUND
     ]
   }
@@ -77,6 +78,7 @@ menuNames[ICE] = "ICE";
 menuNames[LAVA] = "LAVA";
 menuNames[METHANE] = "METHANE";
 menuNames[CRYO] = "CRYO";
+menuNames[BLACK_HOLE] = "BLACK HOLE";
 menuNames[MYSTERY] = "???";
 menuNames[SOIL] = "SOIL";
 menuNames[ACID] = "ACID";
@@ -93,6 +95,7 @@ menuAltColors[WATER] = "rgb(0, 130, 255)";
 menuAltColors[RAIN] = "rgb(110, 190, 255)";
 menuAltColors[CLOUD] = "rgb(220, 225, 235)";
 menuAltColors[SUN] = "rgb(255, 210, 80)";
+menuAltColors[BLACK_HOLE] = "rgb(190, 190, 255)";
 menuAltColors[WALL] = "rgb(160, 160, 160)";
 menuAltColors[BACKGROUND] = "rgb(200, 100, 200)";
 menuAltColors[WELL] = "rgb(158, 13, 33)";

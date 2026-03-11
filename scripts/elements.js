@@ -109,6 +109,7 @@ const CLOUD = __inGameColor(220, 228, 236);
 const RAIN = __inGameColor(90, 170, 255);
 const SUN = __inGameColor(255, 210, 80);
 const CRYO = __inGameColor(0, 213, 255);
+const BLACK_HOLE = __inGameColor(20, 20, 30);
 const MYSTERY = __inGameColor(162, 232, 196);
 const METHANE = __inGameColor(140, 140, 140);
 const SOIL = __inGameColor(120, 75, 33);
@@ -163,6 +164,7 @@ const elements = new Uint32Array([
   RAIN,
   SUN,
   CRYO,
+  BLACK_HOLE,
   MYSTERY,
   METHANE,
   SOIL,
@@ -209,6 +211,7 @@ const elementActions = [
   RAIN_ACTION,
   SUN_ACTION,
   CRYO_ACTION,
+  BLACK_HOLE_ACTION,
   MYSTERY_ACTION,
   METHANE_ACTION,
   SOIL_ACTION,
@@ -898,14 +901,24 @@ function CLOUD_ACTION(x, y, i) {
     addTemperatureAt(i, -1);
   }
 
-  if (doDensityGas(x, y, i, 55)) return;
-  if (doRise(x, y, i, 35, 55)) return;
+  const nearbyClouds = borderingAdjacentCount(x, y, i, CLOUD);
+  if (doDensityGas(x, y, i, nearbyClouds >= 3 ? 40 : 55)) return;
+  if (doRise(x, y, i, nearbyClouds >= 3 ? 18 : 35, 45)) return;
 
-  if (random() < 8 && borderingAdjacent(x, y, i, CLOUD) !== -1) {
+  if (nearbyClouds >= 4 && random() < 8) {
+    const sagLoc = below(y, i, BACKGROUND);
+    if (sagLoc !== -1) {
+      gameImagedata32[sagLoc] = CLOUD;
+      gameImagedata32[i] = BACKGROUND;
+      return;
+    }
+  }
+
+  if (nearbyClouds >= 2 && random() < (nearbyClouds >= 4 ? 18 : 8)) {
     const rainLoc = below(y, i, BACKGROUND);
     if (rainLoc !== -1) {
       gameImagedata32[rainLoc] = RAIN;
-      if (random() < 40) gameImagedata32[i] = BACKGROUND;
+      if (random() < (nearbyClouds >= 4 ? 15 : 30)) gameImagedata32[i] = BACKGROUND;
       return;
     }
   }
@@ -927,6 +940,11 @@ function RAIN_ACTION(x, y, i) {
 
   if (random() < 20 && bordering(x, y, i, FIRE) !== -1) {
     gameImagedata32[i] = STEAM;
+    return;
+  }
+
+  if (random() < 30 && borderingAdjacent(x, y, i, WATER) !== -1) {
+    gameImagedata32[i] = WATER;
     return;
   }
 
@@ -963,7 +981,6 @@ function SUN_ACTION(x, y, i) {
 }
 
 function CRYO_ACTION(x, y, i) {
-  /* Freeze a surrounding surface */
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);
   const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
@@ -977,47 +994,66 @@ function CRYO_ACTION(x, y, i) {
       const idx = idxBase + xIter;
       const borderingElem = gameImagedata32[idx];
 
-      if (borderingElem === CRYO) continue;
+      if (borderingElem === CRYO || borderingElem === BLACK_HOLE) continue;
 
-      if (borderingElem === CHILLED_ICE && random() < 1 && random() < 5) {
-        gameImagedata32[i] = CHILLED_ICE;
-        return;
-      }
+      if (typeof addTemperatureAt === "function") addTemperatureAt(idx, -2);
 
-      if (
-        borderingElem === WALL ||
-        borderingElem === SPOUT ||
-        borderingElem === WAX ||
-        borderingElem === WELL ||
-        borderingElem === FUSE ||
-        borderingElem === PLANT ||
-        borderingElem === C4
-      ) {
-        gameImagedata32[i] = CHILLED_ICE;
-        return;
-      }
-
-      if (borderingElem === WATER || borderingElem === ICE) {
-        gameImagedata32[idx] = CHILLED_ICE;
-        gameImagedata32[i] = CHILLED_ICE;
-        return;
-      }
-
-      if (borderingElem === LAVA) {
-        gameImagedata32[i] = BACKGROUND;
+      if ((borderingElem === WATER || borderingElem === RAIN) && random() < 25) {
+        gameImagedata32[idx] = ICE;
+      } else if (borderingElem === STEAM && random() < 18) {
+        gameImagedata32[idx] = CLOUD;
+      } else if (borderingElem === CLOUD && random() < 12) {
+        gameImagedata32[idx] = RAIN;
+      } else if (borderingElem === LAVA && random() < 30) {
         gameImagedata32[idx] = ROCK;
-        return;
       }
     }
   }
+}
 
-  if (doGravity(x, y, i, true, 95)) return;
+function BLACK_HOLE_ACTION(x, y, i) {
+  if ((x + y) % 2 !== frameDebt % 2) return;
 
-  /* Freeze even if there are no nearby freezable surfaces */
-  if (random() < 1 && random() < 50) {
-    if (bordering(x, y, i, BACKGROUND) === -1 && !surroundedBy(x, y, i, CRYO)) {
-      gameImagedata32[i] = CHILLED_ICE;
-      return;
+  const pullRadius = 4;
+  var dx, dy;
+  for (dy = -pullRadius; dy <= pullRadius; dy++) {
+    for (dx = -pullRadius; dx <= pullRadius; dx++) {
+      if (dx === 0 && dy === 0) continue;
+
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || nx > MAX_X_IDX || ny < 0 || ny > MAX_Y_IDX) continue;
+
+      const neighborIdx = ny * width + nx;
+      const elem = gameImagedata32[neighborIdx];
+      if (
+        elem === BACKGROUND ||
+        elem === WALL ||
+        elem === SPOUT ||
+        elem === WELL ||
+        elem === TORCH ||
+        elem === SUN ||
+        elem === CRYO ||
+        elem === BLACK_HOLE
+      ) {
+        continue;
+      }
+
+      const stepX = dx > 0 ? -1 : (dx < 0 ? 1 : 0);
+      const stepY = dy > 0 ? -1 : (dy < 0 ? 1 : 0);
+      const targetX = nx + stepX;
+      const targetY = ny + stepY;
+      const targetIdx = neighborIdx + stepY * width + stepX;
+
+      if (targetX === x && targetY === y) {
+        gameImagedata32[neighborIdx] = BACKGROUND;
+        continue;
+      }
+
+      if (gameImagedata32[targetIdx] === BACKGROUND && random() < 60) {
+        gameImagedata32[targetIdx] = elem;
+        gameImagedata32[neighborIdx] = BACKGROUND;
+      }
     }
   }
 }
@@ -1610,6 +1646,10 @@ function surroundedByAdjacentCount(x, y, i, type) {
   }
 
   return count;
+}
+
+function borderingAdjacentCount(x, y, i, type) {
+  return surroundedByAdjacentCount(x, y, i, type);
 }
 
 function doGravity(x, y, i, fallAdjacent, chance) {

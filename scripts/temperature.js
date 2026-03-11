@@ -25,6 +25,7 @@ function applyTemperaturePhysics() {
     if (elem === FIRE) target = 24;
     else if (elem === LAVA) target = 36;
     else if (elem === SUN) target = 30;
+    else if (elem === CRYO) target = -30;
     else if (elem === STEAM) target = 10;
     else if (elem === ICE) target = -8;
     else if (elem === CLOUD) target = 1;
