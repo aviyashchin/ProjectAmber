@@ -973,7 +973,12 @@ function SUN_ACTION(x, y, i) {
       if ((elem === WATER || elem === RAIN) && random() < 12) {
         gameImagedata32[idx] = STEAM;
       } else if (
-        (elem === PLANT || elem === LEAF || elem === BRANCH || elem === OIL || elem === FUSE) &&
+        (elem === PLANT ||
+          elem === LEAF ||
+          elem === BRANCH ||
+          elem === OIL ||
+          elem === FUSE ||
+          elem === METHANE) &&
         random() < 10
       ) {
         gameImagedata32[idx] = FIRE;
@@ -1159,17 +1164,15 @@ function MYSTERY_ACTION(x, y, i) {
 }
 
 function METHANE_ACTION(x, y, i) {
-  if (random() < 25 && bordering(x, y, i, FIRE) !== -1) {
-    if (!particles.addActiveParticle(METHANE_PARTICLE, x, y, i)) {
-      gameImagedata32[i] = FIRE;
-    }
+  if (
+    random() < 25 &&
+    (bordering(x, y, i, FIRE) !== -1 || bordering(x, y, i, SUN) !== -1)
+  ) {
+    gameImagedata32[i] = FIRE;
     return;
   }
 
-  /* methane is less dense than air */
-  if (doRise(x, y, i, 25, 65)) return;
-
-  if (doDensityGas(x, y, i, 70)) return;
+  if (doRise(x, y, i, 30, 45)) return;
 }
 
 function SOIL_ACTION(x, y, i) {

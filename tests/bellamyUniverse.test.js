@@ -185,6 +185,7 @@ function testWeatherStateAndForceFamilies() {
   assert(
     sunActionMatch[1].includes("elem === PLANT") &&
     sunActionMatch[1].includes("elem === OIL") &&
+    sunActionMatch[1].includes("elem === METHANE") &&
     sunActionMatch[1].includes("gameImagedata32[idx] = FIRE;"),
     "SUN_ACTION should ignite nearby burnable elements like a gentler fire source"
   );
@@ -244,6 +245,22 @@ function testSunlightChecksAreBounded() {
   );
 }
 
+function testMethaneStaysLocalAndCheap() {
+  const elementsSource = read("scripts/elements.js");
+  const methaneActionMatch = elementsSource.match(/function METHANE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(methaneActionMatch, "elements.js should contain METHANE_ACTION body");
+  assert(
+    methaneActionMatch[1].includes("bordering(x, y, i, SUN) !== -1"),
+    "METHANE_ACTION should let SUN ignite methane directly"
+  );
+
+  assert(
+    !methaneActionMatch[1].includes("particles.addActiveParticle"),
+    "METHANE_ACTION should avoid particle-based ignition for performance"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -253,5 +270,6 @@ module.exports = {
   testWeatherStateAndForceFamilies,
   testColorFamiliesStayCoherent,
   testTemperatureLoopIsSparse,
-  testSunlightChecksAreBounded
+  testSunlightChecksAreBounded,
+  testMethaneStaysLocalAndCheap
 };
