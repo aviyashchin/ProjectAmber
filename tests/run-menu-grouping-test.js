@@ -1,7 +1,11 @@
-const { testPaletteUsesBellamyGroups } = require("./menuGrouping.test.js");
+const {
+  testPaletteUsesBellamyGroups,
+  testBorderCheckboxExists
+} = require("./menuGrouping.test.js");
 
 try {
   testPaletteUsesBellamyGroups();
+  testBorderCheckboxExists();
   console.log("PASS menu grouping regression");
 } catch (error) {
   console.error("FAIL menu grouping regression");

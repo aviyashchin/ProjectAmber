@@ -884,7 +884,7 @@ function CLOUD_ACTION(x, y, i) {
     const rainLoc = below(y, i, BACKGROUND);
     if (rainLoc !== -1) {
       gameImagedata32[rainLoc] = RAIN;
-      if (random() < 20) gameImagedata32[i] = BACKGROUND;
+      if (random() < 75) gameImagedata32[i] = BACKGROUND;
       return;
     }
   }

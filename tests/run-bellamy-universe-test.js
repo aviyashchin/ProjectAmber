@@ -9,7 +9,8 @@ const {
   testNoTemperatureControlPlaneRemains,
   testMethaneStaysLocalAndCheap,
   testBlackHoleStaysLocal,
-  testForceAndGrowthSystemsAreThrottled
+  testForceAndGrowthSystemsAreThrottled,
+  testCloudsThinWhenTheyRain
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -24,6 +25,7 @@ try {
   testMethaneStaysLocalAndCheap();
   testBlackHoleStaysLocal();
   testForceAndGrowthSystemsAreThrottled();
+  testCloudsThinWhenTheyRain();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

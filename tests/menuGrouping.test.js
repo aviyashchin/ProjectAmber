@@ -33,17 +33,30 @@ function testPaletteUsesBellamyGroups() {
     menuSource.includes('label: "Earth"') &&
     menuSource.includes('label: "Water & Sky"') &&
     menuSource.includes('label: "Heat & Fire"') &&
+    menuSource.includes('label: "Discovery"') &&
     menuSource.includes('label: "Life"') &&
     menuSource.includes('label: "Advanced"'),
     "menu.js should define the Bellamy group labels"
   );
+}
+
+function testBorderCheckboxExists() {
+  const menuSource = getMenuSource();
+  const indexSource = getIndexSource();
 
   assert(
-    !menuSource.includes('label: "Forces"'),
-    "menu.js should not expose a separate Forces group in performance-first mode"
+    indexSource.includes('id="borderCheckbox"'),
+    "index.html should provide a borderCheckbox control"
+  );
+
+  assert(
+    menuSource.includes('const borderCheckbox = document.getElementById("borderCheckbox");') &&
+    menuSource.includes('document.body.classList.toggle("borderless", !borderCheckbox.checked);'),
+    "menu.js should wire the border checkbox to a borderless body class"
   );
 }
 
 module.exports = {
-  testPaletteUsesBellamyGroups
+  testPaletteUsesBellamyGroups,
+  testBorderCheckboxExists
 };

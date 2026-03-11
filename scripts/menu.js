@@ -37,6 +37,10 @@ const elementMenuGroups = [
     items: [SUN, ANTI_GRAVITY, FIRE, TORCH, LAVA, CRYO]
   },
   {
+    label: "Discovery",
+    items: [BLACK_HOLE, MYSTERY]
+  },
+  {
     label: "Life",
     items: [PLANT, ZOMBIE]
   },
@@ -45,7 +49,7 @@ const elementMenuGroups = [
     items: [
       SALT, OIL, WAX, GUNPOWDER,
       NAPALM, NITRO, C4, FUSE,
-      BLACK_HOLE, METHANE, ACID, THERMITE,
+      METHANE, ACID, THERMITE,
       BACKGROUND
     ]
   }
@@ -259,6 +263,12 @@ function initMenu() {
   overwriteCheckbox.checked = OVERWRITE_ENABLED;
   overwriteCheckbox.addEventListener("click", function () {
     OVERWRITE_ENABLED = overwriteCheckbox.checked;
+  });
+
+  const borderCheckbox = document.getElementById("borderCheckbox");
+  document.body.classList.toggle("borderless", !borderCheckbox.checked);
+  borderCheckbox.addEventListener("click", function () {
+    document.body.classList.toggle("borderless", !borderCheckbox.checked);
   });
 
   /* speed slider */

@@ -171,14 +171,13 @@ function testWeatherStateAndForceFamilies() {
   );
 
   assert(
-    !menuSource.includes("label: \"Forces\""),
-    "menu.js should avoid a separate default Forces group in performance-first mode"
+    menuSource.includes('label: "Discovery"'),
+    "menu.js should expose a Discovery group for weird experiments"
   );
 
   assert(
-    !menuSource.includes("items: [BLACK_HOLE]") &&
-    !menuSource.includes("MYSTERY, METHANE"),
-    "menu.js should keep the heaviest toys out of the default palette layout"
+    menuSource.includes("items: [BLACK_HOLE, MYSTERY]"),
+    "menu.js should keep the heaviest toys in a small Discovery group"
   );
 
   const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
@@ -257,9 +256,8 @@ function testBlackHoleStaysLocal() {
   );
 
   assert(
-    menuSource.includes("BLACK_HOLE, METHANE, ACID, THERMITE") &&
-    !menuSource.includes("label: \"Forces\""),
-    "BLACK_HOLE should stay hidden in Advanced instead of its own default group"
+    menuSource.includes("items: [BLACK_HOLE, MYSTERY]"),
+    "BLACK_HOLE should live in the Discovery group"
   );
 }
 
@@ -291,6 +289,24 @@ function testForceAndGrowthSystemsAreThrottled() {
   );
 }
 
+function testCloudsThinWhenTheyRain() {
+  const elementsSource = read("scripts/elements.js");
+  const cloudActionMatch = elementsSource.match(/function CLOUD_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const tooltipSource = read("scripts/tooltips.js");
+
+  assert(cloudActionMatch, "elements.js should contain CLOUD_ACTION body");
+  assert(
+    cloudActionMatch[1].includes("gameImagedata32[rainLoc] = RAIN;") &&
+    cloudActionMatch[1].includes("gameImagedata32[i] = BACKGROUND;"),
+    "clouds should lose mass when they rain"
+  );
+
+  assert(
+    tooltipSource.includes('Cloud: "Cool mist that can rain"'),
+    "tooltips.js should keep cloud behavior kid-readable"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -302,5 +318,6 @@ module.exports = {
   testNoTemperatureControlPlaneRemains,
   testMethaneStaysLocalAndCheap,
   testBlackHoleStaysLocal,
-  testForceAndGrowthSystemsAreThrottled
+  testForceAndGrowthSystemsAreThrottled,
+  testCloudsThinWhenTheyRain
 };

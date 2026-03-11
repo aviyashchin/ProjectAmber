@@ -22,6 +22,9 @@ const BELLAMY_ELEMENT_INFO = {
   Spout: "Makes water forever.",
   Well: "Makes oil forever.",
   Zombie: "A wandering hand for weird sandbox chaos."
+  ,
+  Mystery: "A weird experiment block. Try it when you want surprises.",
+  Discovery: "Weird science toys for brave experiments."
 };
 
 const WORLD_IDEAS = [
@@ -62,6 +65,7 @@ function getElementInfoText(elemType) {
   if (label === "SPOUT") return BELLAMY_ELEMENT_INFO.Spout;
   if (label === "WELL") return BELLAMY_ELEMENT_INFO.Well;
   if (label === "HAND") return BELLAMY_ELEMENT_INFO.Zombie;
+  if (label === "???") return BELLAMY_ELEMENT_INFO.Mystery;
   return "Try mixing it with something nearby and see what happens.";
 }
 

@@ -99,6 +99,16 @@ a:hover {
   padding: 8px 8px 16px;
 }
 
+body.borderless canvas {
+  border: none;
+}
+
+body.borderless #menuWrapper {
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
 #elementPalette {
   display: flex;
   flex-wrap: wrap;
