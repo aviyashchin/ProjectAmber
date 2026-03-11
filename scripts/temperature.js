@@ -10,6 +10,7 @@ const TEMP_PLANT_STRESS = 16;
 const TEMP_RAIN_CLOUDS = 2;
 
 const temperatureField = new Int16Array(width * height);
+var temperatureCursor = 0;
 
 function initTemperature() {
   for (var i = 0; i !== temperatureField.length; i++) {
@@ -18,7 +19,10 @@ function initTemperature() {
 }
 
 function applyTemperaturePhysics() {
-  for (var i = 0; i !== temperatureField.length; i++) {
+  const tempBudget = Math.max(1024, Math.floor(temperatureField.length / 6));
+  const tempEnd = Math.min(temperatureCursor + tempBudget, temperatureField.length);
+  var i;
+  for (i = temperatureCursor; i !== tempEnd; i++) {
     const elem = gameImagedata32[i];
     var target = AMBIENT_TEMP;
 
@@ -35,6 +39,9 @@ function applyTemperaturePhysics() {
     if (current < target) temperatureField[i] = current + 1;
     else if (current > target) temperatureField[i] = current - 1;
   }
+
+  temperatureCursor = tempEnd;
+  if (temperatureCursor >= temperatureField.length) temperatureCursor = 0;
 }
 
 function getTemperatureAt(i) {

@@ -34,7 +34,11 @@ const elementMenuGroups = [
   },
   {
     label: "Heat & Fire",
-    items: [SUN, FIRE, TORCH, LAVA, CRYO]
+    items: [SUN, ANTI_GRAVITY, FIRE, TORCH, LAVA, CRYO]
+  },
+  {
+    label: "Forces",
+    items: [BLACK_HOLE]
   },
   {
     label: "Life",
@@ -46,7 +50,6 @@ const elementMenuGroups = [
       SALT, OIL, WAX, GUNPOWDER,
       NAPALM, NITRO, C4, FUSE,
       MYSTERY, METHANE, ACID, THERMITE,
-      BLACK_HOLE,
       BACKGROUND
     ]
   }
@@ -59,6 +62,7 @@ menuNames[WATER] = "WATER";
 menuNames[RAIN] = "RAIN";
 menuNames[CLOUD] = "CLOUD";
 menuNames[SUN] = "SUN";
+menuNames[ANTI_GRAVITY] = "ANTI-G";
 menuNames[PLANT] = "PLANT";
 menuNames[FIRE] = "FIRE";
 menuNames[SALT] = "SALT";
@@ -95,6 +99,7 @@ menuAltColors[WATER] = "rgb(0, 130, 255)";
 menuAltColors[RAIN] = "rgb(110, 190, 255)";
 menuAltColors[CLOUD] = "rgb(220, 225, 235)";
 menuAltColors[SUN] = "rgb(255, 210, 80)";
+menuAltColors[ANTI_GRAVITY] = "rgb(170, 255, 180)";
 menuAltColors[BLACK_HOLE] = "rgb(190, 190, 255)";
 menuAltColors[WALL] = "rgb(160, 160, 160)";
 menuAltColors[BACKGROUND] = "rgb(200, 100, 200)";

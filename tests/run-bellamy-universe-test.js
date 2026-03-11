@@ -4,7 +4,9 @@ const {
   testTemperatureLoopExists,
   testBellamyDescriptionsExist,
   testPlantGrowthUsesLocalChecks,
-  testWeatherStateAndForceFamilies
+  testWeatherStateAndForceFamilies,
+  testColorFamiliesStayCoherent,
+  testTemperatureLoopIsSparse
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -14,6 +16,8 @@ try {
   testBellamyDescriptionsExist();
   testPlantGrowthUsesLocalChecks();
   testWeatherStateAndForceFamilies();
+  testColorFamiliesStayCoherent();
+  testTemperatureLoopIsSparse();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

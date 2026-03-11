@@ -83,15 +83,15 @@ function __inGameColor(r, g, b) {
 const BACKGROUND = __inGameColor(0, 0, 0);
 const WALL = __inGameColor(127, 127, 127);
 const SAND = __inGameColor(223, 193, 99);
-const WATER = __inGameColor(0, 10, 255);
+const WATER = __inGameColor(28, 116, 255);
 const PLANT = __inGameColor(0, 220, 0);
-const FIRE = __inGameColor(255, 0, 10);
+const FIRE = __inGameColor(255, 88, 32);
 const SALT = __inGameColor(253, 253, 253);
 const SALT_WATER = __inGameColor(127, 175, 255);
 const OIL = __inGameColor(150, 60, 0);
 const SPOUT = __inGameColor(117, 189, 252);
 const WELL = __inGameColor(131, 11, 28);
-const TORCH = __inGameColor(200, 5, 0);
+const TORCH = __inGameColor(255, 184, 88);
 const GUNPOWDER = __inGameColor(170, 170, 140);
 const WAX = __inGameColor(239, 225, 211);
 const FALLING_WAX = __inGameColor(240, 225, 211);
@@ -100,14 +100,15 @@ const NAPALM = __inGameColor(220, 128, 70);
 const C4 = __inGameColor(240, 230, 150);
 const CONCRETE = __inGameColor(180, 180, 180);
 const FUSE = __inGameColor(219, 175, 199);
-const ICE = __inGameColor(161, 232, 255);
+const ICE = __inGameColor(144, 230, 255);
 const CHILLED_ICE = __inGameColor(20, 153, 220);
-const LAVA = __inGameColor(245, 110, 40);
+const LAVA = __inGameColor(255, 124, 52);
 const ROCK = __inGameColor(68, 40, 8);
 const STEAM = __inGameColor(195, 214, 235);
-const CLOUD = __inGameColor(220, 228, 236);
-const RAIN = __inGameColor(90, 170, 255);
-const SUN = __inGameColor(255, 210, 80);
+const CLOUD = __inGameColor(188, 222, 252);
+const RAIN = __inGameColor(88, 182, 255);
+const SUN = __inGameColor(255, 226, 96);
+const ANTI_GRAVITY = __inGameColor(142, 255, 166);
 const CRYO = __inGameColor(0, 213, 255);
 const BLACK_HOLE = __inGameColor(20, 20, 30);
 const MYSTERY = __inGameColor(162, 232, 196);
@@ -163,6 +164,7 @@ const elements = new Uint32Array([
   CLOUD,
   RAIN,
   SUN,
+  ANTI_GRAVITY,
   CRYO,
   BLACK_HOLE,
   MYSTERY,
@@ -210,6 +212,7 @@ const elementActions = [
   CLOUD_ACTION,
   RAIN_ACTION,
   SUN_ACTION,
+  ANTI_GRAVITY_ACTION,
   CRYO_ACTION,
   BLACK_HOLE_ACTION,
   MYSTERY_ACTION,
@@ -975,6 +978,39 @@ function SUN_ACTION(x, y, i) {
         gameImagedata32[idx] = WATER;
       } else if ((elem === SOIL || elem === WET_SOIL) && typeof addTemperatureAt === "function") {
         addTemperatureAt(idx, 1);
+      }
+    }
+  }
+}
+
+function ANTI_GRAVITY_ACTION(x, y, i) {
+  const xStart = Math.max(x - 1, 0);
+  const yStart = Math.max(y - 2, 0);
+  const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
+  const yEnd = Math.min(y + 2, MAX_Y_IDX + 1);
+  var xIter, yIter;
+  for (yIter = yStart; yIter !== yEnd; yIter++) {
+    const idxBase = yIter * width;
+    for (xIter = xStart; xIter !== xEnd; xIter++) {
+      const idx = idxBase + xIter;
+      if (idx === i) continue;
+
+      const elem = gameImagedata32[idx];
+      if (
+        elem === BACKGROUND ||
+        elem === WALL ||
+        elem === SUN ||
+        elem === ANTI_GRAVITY ||
+        elem === CRYO ||
+        elem === BLACK_HOLE
+      ) {
+        continue;
+      }
+
+      const aboveIdx = yIter > 0 ? idx - width : -1;
+      if (aboveIdx !== -1 && gameImagedata32[aboveIdx] === BACKGROUND && random() < 40) {
+        gameImagedata32[aboveIdx] = elem;
+        gameImagedata32[idx] = BACKGROUND;
       }
     }
   }

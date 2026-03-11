@@ -30,17 +30,23 @@ function testWeatherElementsExist() {
   const menuSource = read("scripts/menu.js");
 
   assert(elementsSource.includes("const SUN = __inGameColor("), "elements.js should define SUN");
+  assert(elementsSource.includes("const ANTI_GRAVITY = __inGameColor("), "elements.js should define ANTI_GRAVITY");
   assert(elementsSource.includes("const CLOUD = __inGameColor("), "elements.js should define CLOUD");
   assert(elementsSource.includes("const RAIN = __inGameColor("), "elements.js should define RAIN");
   assert(elementsSource.includes("const BLACK_HOLE = __inGameColor("), "elements.js should define BLACK_HOLE");
 
   assert(elementsSource.includes("function SUN_ACTION("), "elements.js should define SUN_ACTION");
+  assert(elementsSource.includes("function ANTI_GRAVITY_ACTION("), "elements.js should define ANTI_GRAVITY_ACTION");
   assert(elementsSource.includes("function CLOUD_ACTION("), "elements.js should define CLOUD_ACTION");
   assert(elementsSource.includes("function RAIN_ACTION("), "elements.js should define RAIN_ACTION");
   assert(elementsSource.includes("function BLACK_HOLE_ACTION("), "elements.js should define BLACK_HOLE_ACTION");
   assert(elementsSource.includes("function CRYO_ACTION("), "elements.js should define CRYO_ACTION");
 
   assert(menuSource.includes('menuNames[SUN] = "SUN"'), "menu.js should expose SUN in the menu");
+  assert(
+    menuSource.includes('menuNames[ANTI_GRAVITY] = "ANTI-G"'),
+    "menu.js should expose ANTI-G in the menu"
+  );
   assert(menuSource.includes('menuNames[CRYO] = "CRYO"'), "menu.js should expose CRYO in the menu");
   assert(
     menuSource.includes('menuNames[BLACK_HOLE] = "BLACK HOLE"'),
@@ -52,6 +58,13 @@ function testWeatherElementsExist() {
   assert(
     !sunActionMatch[1].includes("doRise(") && !sunActionMatch[1].includes("doDensityGas("),
     "SUN_ACTION should heat nearby cells without moving"
+  );
+
+  const antiGravityActionMatch = elementsSource.match(/function ANTI_GRAVITY_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  assert(antiGravityActionMatch, "elements.js should contain ANTI_GRAVITY_ACTION body");
+  assert(
+    !antiGravityActionMatch[1].includes("doGravity("),
+    "ANTI_GRAVITY_ACTION should stay in place and affect neighbors instead of falling"
   );
 
   const cryoActionMatch = elementsSource.match(/function CRYO_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
@@ -163,8 +176,42 @@ function testWeatherStateAndForceFamilies() {
   );
 
   assert(
-    menuSource.includes("items: [SUN, FIRE, TORCH, LAVA, CRYO]"),
-    "menu.js should group SUN and CRYO together in Heat & Fire"
+    menuSource.includes("items: [SUN, ANTI_GRAVITY, FIRE, TORCH, LAVA, CRYO]"),
+    "menu.js should group the force family in Heat & Fire"
+  );
+}
+
+function testColorFamiliesStayCoherent() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("const WATER = __inGameColor(28, 116, 255);") &&
+    elementsSource.includes("const RAIN = __inGameColor(88, 182, 255);") &&
+    elementsSource.includes("const CLOUD = __inGameColor(188, 222, 252);") &&
+    elementsSource.includes("const ICE = __inGameColor(144, 230, 255);"),
+    "water family colors should share a readable blue spectrum"
+  );
+
+  assert(
+    elementsSource.includes("const TORCH = __inGameColor(255, 184, 88);") &&
+    elementsSource.includes("const FIRE = __inGameColor(255, 88, 32);") &&
+    elementsSource.includes("const SUN = __inGameColor(255, 226, 96);") &&
+    elementsSource.includes("const LAVA = __inGameColor(255, 124, 52);"),
+    "heat family colors should share a readable warm spectrum"
+  );
+}
+
+function testTemperatureLoopIsSparse() {
+  const temperatureSource = read("scripts/temperature.js");
+
+  assert(
+    temperatureSource.includes("var temperatureCursor = 0;"),
+    "temperature.js should track a rolling cursor for sparse updates"
+  );
+
+  assert(
+    temperatureSource.includes("const tempBudget = Math.max(1024, Math.floor(temperatureField.length / 6));"),
+    "temperature.js should update a bounded slice of the temperature field each frame"
   );
 }
 
@@ -174,5 +221,7 @@ module.exports = {
   testTemperatureLoopExists,
   testBellamyDescriptionsExist,
   testPlantGrowthUsesLocalChecks,
-  testWeatherStateAndForceFamilies
+  testWeatherStateAndForceFamilies,
+  testColorFamiliesStayCoherent,
+  testTemperatureLoopIsSparse
 };

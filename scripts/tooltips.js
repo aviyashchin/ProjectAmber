@@ -4,6 +4,7 @@
 
 const BELLAMY_ELEMENT_INFO = {
   Sun: "A tiny warm star. It heats nearby things.",
+  "Anti-G": "A floaty force tool. It lifts nearby things upward.",
   Sand: "Falls, piles up, and makes hills.",
   Water: "Flows downhill and fills spaces.",
   Rain: "Falling water from clouds.",
@@ -45,6 +46,7 @@ function getElementInfoText(elemType) {
   if (label === "SOIL") return BELLAMY_ELEMENT_INFO.Soil;
   if (label === "WET SOIL") return BELLAMY_ELEMENT_INFO["Wet Soil"];
   if (label === "SUN") return BELLAMY_ELEMENT_INFO.Sun;
+  if (label === "ANTI-G") return BELLAMY_ELEMENT_INFO["Anti-G"];
   if (label === "SAND") return BELLAMY_ELEMENT_INFO.Sand;
   if (label === "WATER") return BELLAMY_ELEMENT_INFO.Water;
   if (label === "RAIN") return BELLAMY_ELEMENT_INFO.Rain;
