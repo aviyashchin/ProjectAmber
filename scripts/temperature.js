@@ -10,15 +10,19 @@ const TEMP_PLANT_STRESS = 16;
 const TEMP_RAIN_CLOUDS = 2;
 
 const temperatureField = new Int16Array(width * height);
+const sunExposureField = new Uint8Array(width * height);
 var temperatureCursor = 0;
 
 function initTemperature() {
   for (var i = 0; i !== temperatureField.length; i++) {
     temperatureField[i] = AMBIENT_TEMP;
+    sunExposureField[i] = 0;
   }
 }
 
 function applyTemperaturePhysics() {
+  rebuildSunExposureField();
+
   const tempBudget = Math.max(1024, Math.floor(temperatureField.length / 6));
   const tempEnd = Math.min(temperatureCursor + tempBudget, temperatureField.length);
   var i;
@@ -52,27 +56,27 @@ function addTemperatureAt(i, delta) {
   temperatureField[i] += delta;
 }
 
-function hasElementAboveInColumn(x, y, elemType) {
-  var row;
-  for (row = y - 1; row >= 0; row--) {
-    const idx = row * width + x;
-    if (gameImagedata32[idx] === elemType) return true;
-  }
-  return false;
-}
+function rebuildSunExposureField() {
+  var x, y;
+  for (x = 0; x !== width; x++) {
+    var sunSeen = false;
+    var skyOpen = true;
+    for (y = 0; y !== height; y++) {
+      const idx = y * width + x;
+      const elem = gameImagedata32[idx];
 
-function hasSkyExposure(x, y, i) {
-  var row;
-  for (row = y - 1; row >= 0; row--) {
-    const idx = row * width + x;
-    const elem = gameImagedata32[idx];
-    if (elem !== BACKGROUND && elem !== STEAM && elem !== CLOUD && elem !== SUN) {
-      return false;
+      if (elem === SUN) sunSeen = true;
+
+      if (skyOpen || sunSeen) sunExposureField[idx] = 1;
+      else sunExposureField[idx] = 0;
+
+      if (elem !== BACKGROUND && elem !== STEAM && elem !== CLOUD && elem !== SUN) {
+        skyOpen = false;
+      }
     }
   }
-  return true;
 }
 
 function isHeatedBySun(x, y, i) {
-  return hasSkyExposure(x, y, i) || hasElementAboveInColumn(x, y, SUN);
+  return sunExposureField[i] === 1;
 }

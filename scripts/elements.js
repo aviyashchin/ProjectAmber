@@ -310,9 +310,9 @@ function SAND_ACTION(x, y, i) {
 
 function WATER_ACTION(x, y, i) {
   if (
-    typeof isHeatedBySun === "function" &&
+    typeof sunExposureField !== "undefined" &&
     typeof getTemperatureAt === "function" &&
-    isHeatedBySun(x, y, i) &&
+    sunExposureField[i] === 1 &&
     getTemperatureAt(i) >= TEMP_WATER_EVAPORATES &&
     random() < 6
   ) {
@@ -972,6 +972,11 @@ function SUN_ACTION(x, y, i) {
       const elem = gameImagedata32[idx];
       if ((elem === WATER || elem === RAIN) && random() < 12) {
         gameImagedata32[idx] = STEAM;
+      } else if (
+        (elem === PLANT || elem === LEAF || elem === BRANCH || elem === OIL || elem === FUSE) &&
+        random() < 10
+      ) {
+        gameImagedata32[idx] = FIRE;
       } else if (elem === CLOUD && random() < 8) {
         gameImagedata32[idx] = STEAM;
       } else if (elem === ICE && random() < 10) {
@@ -1211,9 +1216,9 @@ function WET_SOIL_ACTION(x, y, i) {
   if (doDensitySink(x, y, i, SALT_WATER, true, 50)) return;
 
   if (
-    typeof isHeatedBySun === "function" &&
+    typeof sunExposureField !== "undefined" &&
     typeof getTemperatureAt === "function" &&
-    isHeatedBySun(x, y, i) &&
+    sunExposureField[i] === 1 &&
     getTemperatureAt(i) >= TEMP_SOIL_DRIES &&
     borderingAdjacent(x, y, i, WATER) === -1 &&
     random() < 4

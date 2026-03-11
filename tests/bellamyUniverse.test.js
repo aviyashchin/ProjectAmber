@@ -179,6 +179,15 @@ function testWeatherStateAndForceFamilies() {
     menuSource.includes("items: [SUN, ANTI_GRAVITY, FIRE, TORCH, LAVA, CRYO]"),
     "menu.js should group the force family in Heat & Fire"
   );
+
+  const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
+  assert(
+    sunActionMatch[1].includes("elem === PLANT") &&
+    sunActionMatch[1].includes("elem === OIL") &&
+    sunActionMatch[1].includes("gameImagedata32[idx] = FIRE;"),
+    "SUN_ACTION should ignite nearby burnable elements like a gentler fire source"
+  );
 }
 
 function testColorFamiliesStayCoherent() {
@@ -215,6 +224,26 @@ function testTemperatureLoopIsSparse() {
   );
 }
 
+function testSunlightChecksAreBounded() {
+  const temperatureSource = read("scripts/temperature.js");
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    temperatureSource.includes("const sunExposureField = new Uint8Array(width * height);"),
+    "temperature.js should maintain a cached sunlight exposure field"
+  );
+
+  assert(
+    temperatureSource.includes("function rebuildSunExposureField()"),
+    "temperature.js should rebuild sunlight exposure in one bounded pass"
+  );
+
+  assert(
+    elementsSource.includes("sunExposureField[i] === 1"),
+    "elements.js should use cached sun exposure instead of repeated column scans"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -223,5 +252,6 @@ module.exports = {
   testPlantGrowthUsesLocalChecks,
   testWeatherStateAndForceFamilies,
   testColorFamiliesStayCoherent,
-  testTemperatureLoopIsSparse
+  testTemperatureLoopIsSparse,
+  testSunlightChecksAreBounded
 };
