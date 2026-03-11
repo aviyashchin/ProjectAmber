@@ -1629,13 +1629,15 @@ const GRAVITY_CANDIDATES_16 = [
   [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0]
 ];
 const GRAVITY_CANDIDATES_32 = [
-  [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0], [0, 2], [-1, 2], [1, 2]
+  [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0], [0, 2], [-1, 2], [1, 2],
+  [-2, 1], [2, 1], [-2, 0], [2, 0], [-1, -1], [1, -1]
 ];
 const GRAVITY_CANDIDATES_RADIUS_2 = [
   [0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1]
 ];
 const GRAVITY_CANDIDATES_RADIUS_2_32 = [
-  [0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1], [1, 1], [-2, 2], [2, 2]
+  [0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1], [1, 1], [-2, 2], [2, 2],
+  [-2, 1], [2, 1], [-2, 0], [2, 0], [-1, 0], [1, 0], [-1, -1], [1, -1]
 ];
 
 function __rotateGravityCandidates(baseCandidates, bucketCount) {
@@ -1651,14 +1653,21 @@ function __rotateGravityCandidates(baseCandidates, bucketCount) {
       const candidate = baseCandidates[candidateIdx];
       const worldX = candidate[0];
       const worldY = candidate[1];
-      const score = worldX * sinAngle + worldY * cosAngle;
+      const forward = worldX * sinAngle + worldY * cosAngle;
+      const lateral = Math.abs(worldX * cosAngle - worldY * sinAngle);
+      const radius = Math.abs(worldX) + Math.abs(worldY);
+      const score = forward * 100 - lateral * 20 - radius;
       ranked.push({
         offset: candidate,
-        score: score
+        score: score,
+        forward: forward,
+        lateral: lateral
       });
     }
     ranked.sort(function (a, b) {
       if (b.score !== a.score) return b.score - a.score;
+      if (b.forward !== a.forward) return b.forward - a.forward;
+      if (a.lateral !== b.lateral) return a.lateral - b.lateral;
       const aRadius = Math.abs(a.offset[0]) + Math.abs(a.offset[1]);
       const bRadius = Math.abs(b.offset[0]) + Math.abs(b.offset[1]);
       return aRadius - bRadius;
@@ -1666,8 +1675,10 @@ function __rotateGravityCandidates(baseCandidates, bucketCount) {
 
     const bucketOffsets = [];
     for (candidateIdx = 0; candidateIdx < ranked.length; candidateIdx++) {
+      if (ranked[candidateIdx].forward <= 0) continue;
       bucketOffsets.push(ranked[candidateIdx].offset);
     }
+    if (bucketOffsets.length === 0) bucketOffsets.push([0, 1]);
     buckets.push(bucketOffsets);
   }
   return buckets;
