@@ -307,6 +307,59 @@ function testCloudsThinWhenTheyRain() {
   );
 }
 
+function testTiltGravityExperimentSwitchExists() {
+  const gameSource = read("scripts/game.js");
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    gameSource.includes("var gravityExperimentMode = \"default\";") &&
+    gameSource.includes("var gravityBucketCount = 16;") &&
+    gameSource.includes("window.setGravityExperimentMode = function"),
+    "game.js should expose a hidden tilt-gravity experiment switch"
+  );
+
+  assert(
+    elementsSource.includes("function getGravityMode()") &&
+    elementsSource.includes("return gravityExperimentMode;"),
+    "elements.js should read the active gravity experiment mode from game.js"
+  );
+}
+
+function testTiltGravityCandidatesStayLocal() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_16 = [") &&
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = ["),
+    "elements.js should define both local-bias and radius-2 gravity candidate tables"
+  );
+
+  assert(
+    elementsSource.includes("function doExperimentalGravity(") &&
+    elementsSource.includes("getGravityMode() === \"bucket16\"") &&
+    elementsSource.includes("getGravityMode() === \"radius2\""),
+    "elements.js should route gravity experiments through a small helper"
+  );
+
+  assert(
+    !elementsSource.includes("for (dy = -2; dy <= 2; dy++)") &&
+    !elementsSource.includes("for (dx = -2; dx <= 2; dx++)"),
+    "tilt gravity candidates should avoid scanning full local neighborhoods"
+  );
+}
+
+function testTiltGravityBenchmarkNotesExist() {
+  const benchmarkNotes = read("tests/tiltGravityBenchmarkNotes.md");
+
+  assert(
+    benchmarkNotes.includes("Sand-heavy scene") &&
+    benchmarkNotes.includes("Mixed water scene") &&
+    benchmarkNotes.includes("Gas-heavy scene") &&
+    benchmarkNotes.includes("Bucket boundary stability"),
+    "tilt gravity benchmark notes should define the comparison scenes"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -319,5 +372,8 @@ module.exports = {
   testMethaneStaysLocalAndCheap,
   testBlackHoleStaysLocal,
   testForceAndGrowthSystemsAreThrottled,
-  testCloudsThinWhenTheyRain
+  testCloudsThinWhenTheyRain,
+  testTiltGravityExperimentSwitchExists,
+  testTiltGravityCandidatesStayLocal,
+  testTiltGravityBenchmarkNotesExist
 };

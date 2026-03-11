@@ -10,7 +10,10 @@ const {
   testMethaneStaysLocalAndCheap,
   testBlackHoleStaysLocal,
   testForceAndGrowthSystemsAreThrottled,
-  testCloudsThinWhenTheyRain
+  testCloudsThinWhenTheyRain,
+  testTiltGravityExperimentSwitchExists,
+  testTiltGravityCandidatesStayLocal,
+  testTiltGravityBenchmarkNotesExist
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -26,6 +29,9 @@ try {
   testBlackHoleStaysLocal();
   testForceAndGrowthSystemsAreThrottled();
   testCloudsThinWhenTheyRain();
+  testTiltGravityExperimentSwitchExists();
+  testTiltGravityCandidatesStayLocal();
+  testTiltGravityBenchmarkNotesExist();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

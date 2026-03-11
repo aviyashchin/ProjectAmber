@@ -59,6 +59,18 @@ var lastLoop = 0;
 var frameDebt = 0;
 var lastFPSLabelUpdate = 0;
 const refreshTimes = [];
+var gravityExperimentMode = "default";
+var gravityBucketCount = 16;
+var gravityBucketIndex = 0;
+
+window.setGravityExperimentMode = function (mode, bucketIdx) {
+  gravityExperimentMode = mode || "default";
+  if (typeof bucketIdx === "number") gravityBucketIndex = bucketIdx;
+};
+
+window.setGravityBucketIndex = function (bucketIdx) {
+  gravityBucketIndex = bucketIdx;
+};
 
 /* ========================================================================= */
 

@@ -1625,8 +1625,95 @@ function borderingAdjacentCount(x, y, i, type) {
   return surroundedByAdjacentCount(x, y, i, type);
 }
 
+const GRAVITY_BUCKET_OFFSETS_16 = [
+  [[0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0]],
+  [[1, 2], [1, 1], [0, 1], [2, 1], [1, 0]],
+  [[1, 1], [1, 0], [1, 2], [2, 1], [0, 1]],
+  [[2, 1], [1, 1], [1, 0], [1, 2], [2, 0]],
+  [[1, 0], [1, 1], [1, -1], [0, 1], [0, -1]],
+  [[2, -1], [1, -1], [1, 0], [1, -2], [2, 0]],
+  [[1, -1], [1, 0], [1, -2], [2, -1], [0, -1]],
+  [[1, -2], [1, -1], [0, -1], [2, -1], [1, 0]],
+  [[0, -1], [-1, -1], [1, -1], [-1, 0], [1, 0]],
+  [[-1, -2], [-1, -1], [0, -1], [-2, -1], [-1, 0]],
+  [[-1, -1], [-1, 0], [-1, -2], [-2, -1], [0, -1]],
+  [[-2, -1], [-1, -1], [-1, 0], [-1, -2], [-2, 0]],
+  [[-1, 0], [-1, 1], [-1, -1], [0, 1], [0, -1]],
+  [[-2, 1], [-1, 1], [-1, 0], [-1, 2], [-2, 0]],
+  [[-1, 1], [-1, 0], [-1, 2], [-2, 1], [0, 1]],
+  [[-1, 2], [-1, 1], [0, 1], [-2, 1], [-1, 0]]
+];
+
+const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = [
+  [[0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1]],
+  [[1, 2], [0, 2], [1, 1], [2, 2], [0, 1]],
+  [[1, 2], [1, 1], [2, 1], [0, 2], [1, 0]],
+  [[2, 1], [1, 1], [2, 0], [1, 2], [0, 1]],
+  [[2, 0], [1, 0], [2, 1], [2, -1], [1, 1]],
+  [[2, -1], [1, -1], [2, 0], [1, -2], [1, 0]],
+  [[1, -2], [1, -1], [2, -1], [0, -2], [1, 0]],
+  [[1, -2], [0, -2], [1, -1], [2, -2], [0, -1]],
+  [[0, -2], [-1, -2], [1, -2], [0, -1], [-1, -1]],
+  [[-1, -2], [0, -2], [-1, -1], [-2, -2], [0, -1]],
+  [[-1, -2], [-1, -1], [-2, -1], [0, -2], [-1, 0]],
+  [[-2, -1], [-1, -1], [-2, 0], [-1, -2], [0, -1]],
+  [[-2, 0], [-1, 0], [-2, 1], [-2, -1], [-1, 1]],
+  [[-2, 1], [-1, 1], [-2, 0], [-1, 2], [-1, 0]],
+  [[-1, 2], [-1, 1], [-2, 1], [0, 2], [-1, 0]],
+  [[-1, 2], [0, 2], [-1, 1], [-2, 2], [0, 1]]
+];
+
+function getGravityMode() {
+  return gravityExperimentMode;
+}
+
+function getGravityBucketIndex() {
+  const bucketCount = gravityBucketCount > 0 ? gravityBucketCount : 16;
+  const bucketIdx = gravityBucketIndex % bucketCount;
+  return bucketIdx < 0 ? bucketIdx + bucketCount : bucketIdx;
+}
+
+function __inBounds(x, y) {
+  return x >= 0 && x <= MAX_X_IDX && y >= 0 && y <= MAX_Y_IDX;
+}
+
+function __findExperimentalMove(x, y, i, offsets, targetElem) {
+  var iter;
+  for (iter = 0; iter < offsets.length; iter++) {
+    const offset = offsets[iter];
+    const nextX = x + offset[0];
+    const nextY = y + offset[1];
+    if (!__inBounds(nextX, nextY)) continue;
+
+    const nextI = nextX + nextY * width;
+    if (gameImagedata32[nextI] === targetElem) return nextI;
+  }
+
+  return -1;
+}
+
+function doExperimentalGravity(x, y, i, targetElem) {
+  const mode = getGravityMode();
+  if (mode === "default") return -1;
+
+  const bucketIdx = getGravityBucketIndex() & 15;
+  if (getGravityMode() === "bucket16")
+    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_16[bucketIdx], targetElem);
+  if (getGravityMode() === "radius2")
+    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx], targetElem);
+
+  return -1;
+}
+
 function doGravity(x, y, i, fallAdjacent, chance) {
   if (random() >= chance) return false;
+
+  const experimentalMove = doExperimentalGravity(x, y, i, BACKGROUND);
+  if (experimentalMove !== -1) {
+    gameImagedata32[experimentalMove] = gameImagedata32[i];
+    gameImagedata32[i] = BACKGROUND;
+    return true;
+  }
 
   if (y === MAX_Y_IDX) {
     gameImagedata32[i] = BACKGROUND;
@@ -1658,6 +1745,20 @@ function doGravity(x, y, i, fallAdjacent, chance) {
  */
 function doRise(x, y, i, riseChance, adjacentChance) {
   var newI = -1;
+  const mode = getGravityMode();
+  if (mode !== "default" && random() < riseChance) {
+    const bucketIdx = getGravityBucketIndex() & 15;
+    const offsets =
+      mode === "bucket16" ? GRAVITY_BUCKET_OFFSETS_16[bucketIdx] : GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx];
+    var inverseOffsets = [];
+    var iter;
+    for (iter = 0; iter < offsets.length; iter++) {
+      const offset = offsets[iter];
+      inverseOffsets.push([-offset[0], -offset[1]]);
+    }
+    newI = __findExperimentalMove(x, y, i, inverseOffsets, BACKGROUND);
+  }
+
   if (random() < riseChance) {
     if (y === 0) {
       gameImagedata32[i] = BACKGROUND;
