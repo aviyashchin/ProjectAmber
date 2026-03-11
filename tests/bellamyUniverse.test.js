@@ -315,16 +315,21 @@ function testTiltGravityExperimentSwitchExists() {
   const stylesSource = read("styles.css");
 
   assert(
-    gameSource.includes("var gravityExperimentMode = \"default\";") &&
-    gameSource.includes("var gravityBucketCount = 16;") &&
+    gameSource.includes("var gravityExperimentMode = \"family32\";") &&
+    gameSource.includes("var gravityBucketCount = 32;") &&
     gameSource.includes("const gravityState = {") &&
+    gameSource.includes("strategy: \"family32\"") &&
     gameSource.includes("const TILT_BUCKET_VECTORS_32 = Object.freeze([") &&
+    gameSource.includes("window.enableTiltMotionControls = enableTiltMotionControls;") &&
+    gameSource.includes("function handleTiltOrientation(event) {") &&
+    gameSource.includes("function mapDeviceOrientationToGravity(beta, gamma) {") &&
+    gameSource.includes("window.addEventListener(\"deviceorientation\", handleTiltOrientation, true);") &&
     gameSource.includes("window.setGravityExperimentMode = function") &&
     gameSource.includes("window.setTiltBenchmarkState = function") &&
     gameSource.includes("window.setTiltGravityVector = function") &&
     gameSource.includes("window.setTiltDeviceGravity = function") &&
     gameSource.includes("function projectTiltVector("),
-    "game.js should expose tilt-gravity state and mapping helpers"
+    "game.js should expose tilt-gravity state, browser motion hooks, and mapping helpers"
   );
 
   assert(
@@ -357,9 +362,12 @@ function testTiltGravityExperimentSwitchExists() {
     menuSource.includes("const tiltStrengthSlider = document.getElementById(\"tiltStrengthSlider\")") &&
     menuSource.includes("const tiltBucketValue = document.getElementById(\"tiltBucketValue\")") &&
     menuSource.includes("const tiltStrengthValue = document.getElementById(\"tiltStrengthValue\")") &&
+    menuSource.includes("function enableTiltMotionInBackground() {") &&
+    menuSource.includes("window.projectAmberPlatform.device.enableTilt()") &&
+    !menuSource.includes("await window.projectAmberPlatform.device.enableTilt()") &&
     menuSource.includes("document.getElementById(\"tiltSceneSandButton\")") &&
     menuSource.includes("document.getElementById(\"tiltDirectionRightButton\")"),
-    "menu.js should wire the tilt debug controls"
+    "menu.js should wire the tilt debug controls and enable tilt through the platform seam without blocking the click handler"
   );
 
   assert(
@@ -393,7 +401,7 @@ function testTiltGravityCandidatesStayLocal() {
   assert(
     elementsSource.includes("function syncFrameGravity()") &&
     elementsSource.includes("__frameGravityOffsets") &&
-    elementsSource.includes("GRAVITY_BUCKET_OFFSETS_FAMILY_32[bucketIdx]") &&
+    elementsSource.includes("__getFamily32BucketConfig(bucketIdx)") &&
     !elementsSource.includes("getGravityMode() === \"scanline32\""),
     "elements.js should resolve gravity offsets once per frame via syncFrameGravity"
   );
@@ -401,8 +409,9 @@ function testTiltGravityCandidatesStayLocal() {
   const gravityMatch = elementsSource.match(/function doGravity\(x, y, i, fallAdjacent, chance\) \{([\s\S]*?)\n\}/);
   assert(gravityMatch, "elements.js should contain doGravity body");
   assert(
-    gravityMatch[1].includes("__frameGravityFlat !== null"),
-    "doGravity should use the per-frame cached flat offsets instead of per-pixel mode checks"
+    gravityMatch[1].includes("if (__frameGravityIsBaseline)") &&
+    gravityMatch[1].includes("return doGravityBaseline(x, y, i, fallAdjacent, chance);"),
+    "doGravity should jump straight to the vanilla helper when tilt is off"
   );
 
   assert(
@@ -425,14 +434,106 @@ function testTiltGravityCandidatesStayLocal() {
 
   assert(
     elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_FAMILY_32 =") &&
-    elementsSource.includes("GRAVITY_BUCKET_OFFSETS_FAMILY_32[bucketIdx]"),
+    elementsSource.includes("__getFamily32BucketConfig(bucketIdx)"),
     "family32 should use its own stronger bucket offsets so nearby buckets diverge more clearly"
+  );
+
+  const familyCandidatesMatch = elementsSource.match(/const GRAVITY_CANDIDATES_FAMILY_32 = \[([\s\S]*?)\n\];/);
+  assert(familyCandidatesMatch, "elements.js should define the family32 gravity candidates");
+  assert(
+    familyCandidatesMatch[1].includes("[0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0]") &&
+    !familyCandidatesMatch[1].includes("[0, 2]") &&
+    !familyCandidatesMatch[1].includes("[-2, 2]"),
+    "family32 should stay in the local one-pixel neighborhood so straight-down tilt matches vanilla behavior"
+  );
+
+  assert(
+    elementsSource.includes("for (var k = 5; k < 10; k++) {") &&
+    elementsSource.includes("for (var k = 5; k < 15; k++) {") &&
+    elementsSource.includes("for (var k = 5; k < 20; k++) {"),
+    "family32 jitter should keep the primary gravity candidate fixed and only permute fallback moves"
+  );
+
+  assert(
+    elementsSource.includes("function __getFamily32BucketConfig(bucketIdx) {") &&
+    elementsSource.includes("minorShare: major === 0 ? 0 : Math.round((minor * 8) / major)") &&
+    elementsSource.includes("const leadDiagX = stepX === 0 ? -1 : stepX;") &&
+    elementsSource.includes("const trailDiagX = -leadDiagX;") &&
+    elementsSource.includes("__pushFamily32Offset(primaryOffsets, leadDiagX, forwardY);") &&
+    elementsSource.includes("__pushFamily32Offset(primaryOffsets, trailDiagX, forwardY);") &&
+    elementsSource.includes("function __family32Phase(x, y) {") &&
+    elementsSource.includes("if (__frameGravityMirrorX) phaseX = MAX_X_IDX - phaseX;") &&
+    elementsSource.includes("if (__frameGravityMirrorY) phaseY = MAX_Y_IDX - phaseY;"),
+    "family32 should keep diagonal spill options in its local bias configs and use mirrored local phase selection"
   );
 
   assert(
     gameSource.includes("updateGameFamily32()") &&
-    !gameSource.includes("updateGameWithDescriptor(traversalFamilyDescriptors[gravityState.family]);"),
-    "family32 should use a dedicated hot loop instead of the generic descriptor walker"
+    !gameSource.includes("updateGameWithDescriptor(traversalFamilyDescriptors[gravityState.family]);") &&
+    gameSource.includes("const bucketVector = TILT_BUCKET_VECTORS_32[gravityState.bucket];") &&
+    gameSource.includes("if (absDx > absDy)") &&
+    !gameSource.includes("const family = gravityState.family;"),
+    "family32 should keep a fixed dominant-axis sweep instead of switching whole-world traversal phases"
+  );
+
+  assert(
+    elementsSource.includes("const phase = __family32Phase(x, y);") &&
+    elementsSource.includes("phase < __frameGravityMinorShare") &&
+    !elementsSource.includes("candidateOffsets = GRAVITY_BUCKET_OFFSETS_FAMILY_32_JITTER[jitter][bucketIdx];"),
+    "family32 should choose between major-first and diagonal-first local plans from a mirrored per-pixel phase"
+  );
+
+  assert(
+    gameSource.includes("const lineJitter = (tiltRowTraversalModes[Y] + tiltTraversalPhase) & 3;") &&
+    gameSource.includes("const lineJitter = (tiltColumnTraversalModes[X] + tiltTraversalPhase) & 3;") &&
+    gameSource.includes("if (lineJitter === 0 || lineJitter === 3)") &&
+    gameSource.includes("else if (lineJitter === 1)"),
+    "family32 should vary scanline direction with a wider deterministic pattern to reduce stripes"
+  );
+
+  assert(
+    gameSource.includes("const tiltRowTraversalModes = new Uint8Array(height);") &&
+    gameSource.includes("const tiltColumnTraversalModes = new Uint8Array(width);") &&
+    gameSource.includes("function initTiltTraversalModes()") &&
+    gameSource.includes("var tiltTraversalPhase = 0;") &&
+    gameSource.includes("tiltTraversalPhase = (tiltTraversalPhase + 1) & 7;") &&
+    gameSource.includes("const lineJitter = (tiltRowTraversalModes[Y] + tiltTraversalPhase) & 3;") &&
+    gameSource.includes("const lineJitter = (tiltColumnTraversalModes[X] + tiltTraversalPhase) & 3;"),
+    "family32 should precompute tilt traversal modes instead of recomputing line patterns in the hot loop"
+  );
+
+  const fireActionMatch = elementsSource.match(/function FIRE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  assert(fireActionMatch, "elements.js should contain FIRE_ACTION body");
+  assert(
+    fireActionMatch[1].includes("findTiltRiseLoc(x, y, i)") &&
+    !fireActionMatch[1].includes("above(y, i, BACKGROUND)"),
+    "FIRE_ACTION should respect tilt gravity when choosing its rise direction"
+  );
+
+  const torchActionMatch = elementsSource.match(/function TORCH_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  assert(torchActionMatch, "elements.js should contain TORCH_ACTION body");
+  assert(
+    torchActionMatch[1].includes("produceTiltFire(x, y, i, 25)") &&
+    !torchActionMatch[1].includes("doProducer(x, y, i, FIRE, true, 25)"),
+    "TORCH_ACTION should produce fire in the tilt-aware rise direction"
+  );
+
+  const gasDensityMatch = elementsSource.match(/function doDensityGas\(x, y, i, chance\) \{([\s\S]*?)\n\}/);
+  assert(gasDensityMatch, "elements.js should contain doDensityGas body");
+  assert(
+    gasDensityMatch[1].includes("if (__frameGravityIsBaseline) return doDensityGasVertical(x, y, i, chance);") &&
+    gasDensityMatch[1].includes("__frameGravityInverseFlat !== null") &&
+    gasDensityMatch[1].includes("findTiltGasLoc(x, y, i)") &&
+    !gasDensityMatch[1].includes("const aboveSpot = i - width;"),
+    "doDensityGas should use tilt-aware gas motion instead of hardcoded vertical checks"
+  );
+
+  assert(
+    elementsSource.includes("function doGravityBaseline(") &&
+    elementsSource.includes("function doRiseBaseline(") &&
+    elementsSource.includes("function doDensitySinkBaseline(") &&
+    elementsSource.includes("function doDensityLiquidBaseline("),
+    "baseline movement helpers should exist as separate fast paths"
   );
 }
 
@@ -453,6 +554,68 @@ function testTiltGravityBenchmarkNotesExist() {
   );
 }
 
+function testPlatformSeamAndHapticsExist() {
+  const indexSource = read("index.html");
+  const gameSource = read("scripts/game.js");
+  const menuSource = read("scripts/menu.js");
+  const cursorSource = read("scripts/cursor.js");
+  const platformSource = read("scripts/platform.js");
+
+  assert(
+    indexSource.includes('src="scripts/platform.js"'),
+    "index.html should load scripts/platform.js for browser-backed platform hooks"
+  );
+
+  assert(
+    indexSource.includes('id="hapticsButton"'),
+    "index.html should expose a haptics toggle in the Bellamy UI"
+  );
+
+  assert(
+    platformSource.includes("window.projectAmberPlatform =") &&
+    platformSource.includes("haptics: {") &&
+    platformSource.includes("device: {"),
+    "platform.js should define a shared platform object with haptics and device adapters"
+  );
+
+  assert(
+    platformSource.includes("navigator.vibrate") &&
+    platformSource.includes("function init()") &&
+    platformSource.includes("function toggle()") &&
+    platformSource.includes("function light()") &&
+    platformSource.includes("function medium()") &&
+    platformSource.includes("function heavy()") &&
+    platformSource.includes("function draw()"),
+    "platform.js should provide gentle browser-backed haptics helpers"
+  );
+
+  assert(
+    platformSource.includes("async function enableTilt()") &&
+    platformSource.includes("async function lockOrientation(mode)") &&
+    platformSource.includes("function unlockOrientation()"),
+    "platform.js should provide device adapter methods for tilt and orientation"
+  );
+
+  assert(
+    menuSource.includes("const hapticsButton = document.getElementById(\"hapticsButton\")") &&
+    menuSource.includes("window.projectAmberPlatform.haptics.toggle()") &&
+    menuSource.includes("window.projectAmberPlatform.device.enableTilt()"),
+    "menu.js should wire the Bellamy UI through the platform seam"
+  );
+
+  assert(
+    gameSource.includes("window.projectAmberPlatform.device.enableTilt = enableTiltMotionControls;") &&
+    gameSource.includes("window.projectAmberPlatform.device.lockOrientation = lockGameOrientation;") &&
+    gameSource.includes("window.projectAmberPlatform.haptics.init();"),
+    "game.js should connect the runtime tilt/orientation hooks and initialize haptics"
+  );
+
+  assert(
+    cursorSource.includes("window.projectAmberPlatform.haptics.draw()"),
+    "cursor.js should trigger gentle draw haptics through the platform seam"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -468,5 +631,6 @@ module.exports = {
   testCloudsThinWhenTheyRain,
   testTiltGravityExperimentSwitchExists,
   testTiltGravityCandidatesStayLocal,
-  testTiltGravityBenchmarkNotesExist
+  testTiltGravityBenchmarkNotesExist,
+  testPlatformSeamAndHapticsExist
 };

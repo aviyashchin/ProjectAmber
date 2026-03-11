@@ -13,7 +13,8 @@ const {
   testCloudsThinWhenTheyRain,
   testTiltGravityExperimentSwitchExists,
   testTiltGravityCandidatesStayLocal,
-  testTiltGravityBenchmarkNotesExist
+  testTiltGravityBenchmarkNotesExist,
+  testPlatformSeamAndHapticsExist
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -32,6 +33,7 @@ try {
   testTiltGravityExperimentSwitchExists();
   testTiltGravityCandidatesStayLocal();
   testTiltGravityBenchmarkNotesExist();
+  testPlatformSeamAndHapticsExist();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

@@ -167,6 +167,9 @@ function initMenu() {
         if (typeof updateElementInfoPanel === "function") {
           updateElementInfoPanel(SELECTED_ELEM);
         }
+        if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+          window.projectAmberPlatform.haptics.light();
+        }
       });
     }
 
@@ -269,6 +272,16 @@ function initMenu() {
   document.body.classList.toggle("borderless", !borderCheckbox.checked);
   borderCheckbox.addEventListener("click", function () {
     document.body.classList.toggle("borderless", !borderCheckbox.checked);
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  });
+
+  const hapticsButton = document.getElementById("hapticsButton");
+  hapticsButton.addEventListener("click", function () {
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.toggle();
+    }
   });
 
   const tiltModeCheckbox = document.getElementById("tiltModeCheckbox");
@@ -296,6 +309,11 @@ function initMenu() {
     tiltStrengthValue.innerText = tiltState.strength.toFixed(2);
   }
 
+  function enableTiltMotionInBackground() {
+    if (!window.projectAmberPlatform || !window.projectAmberPlatform.device) return;
+    Promise.resolve(window.projectAmberPlatform.device.enableTilt()).catch(function () {});
+  }
+
   tiltModeCheckbox.checked =
     typeof gravityState !== "undefined" && gravityState.strategy === "family32";
   tiltBucketSlider.min = 0;
@@ -305,8 +323,10 @@ function initMenu() {
   tiltStrengthSlider.max = 100;
   tiltStrengthSlider.value = "100";
   tiltModeCheckbox.addEventListener("click", function () {
-    if (tiltModeCheckbox.checked) window.setGravityExperimentMode("family32", gravityBucketIndex);
-    else window.setGravityExperimentMode("default");
+    if (tiltModeCheckbox.checked) {
+      window.setGravityExperimentMode("family32", gravityBucketIndex);
+      enableTiltMotionInBackground();
+    } else window.setGravityExperimentMode("default");
     syncTiltDebugControls();
   });
   tiltBucketSlider.addEventListener("input", function () {
@@ -379,15 +399,30 @@ function initMenu() {
 
   /* clear button */
   const clearButton = document.getElementById("clearButton");
-  clearButton.onclick = clearGameCanvas;
+  clearButton.onclick = function () {
+    clearGameCanvas();
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  };
 
   /* save button */
   const saveButton = document.getElementById("saveButton");
-  saveButton.onclick = saveGameCanvas;
+  saveButton.onclick = function () {
+    saveGameCanvas();
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  };
 
   /* load button */
   const loadButton = document.getElementById("loadButton");
-  loadButton.onclick = loadGameCanvas;
+  loadButton.onclick = function () {
+    loadGameCanvas();
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  };
 }
 
 function drawFPSLabel(fps) {

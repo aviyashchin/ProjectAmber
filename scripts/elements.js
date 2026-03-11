@@ -452,7 +452,7 @@ function FIRE_ACTION(x, y, i) {
 
   /* rising fire */
   if (random() < 50) {
-    const riseLoc = above(y, i, BACKGROUND);
+    const riseLoc = findTiltRiseLoc(x, y, i);
     if (riseLoc !== -1) {
       gameImagedata32[riseLoc] = FIRE;
       return;
@@ -491,7 +491,7 @@ function WELL_ACTION(x, y, i) {
 }
 
 function TORCH_ACTION(x, y, i) {
-  doProducer(x, y, i, FIRE, true, 25);
+  produceTiltFire(x, y, i, 25);
 }
 
 function GUNPOWDER_ACTION(x, y, i) {
@@ -1640,10 +1640,7 @@ const GRAVITY_CANDIDATES_RADIUS_2_32 = [
   [-2, 1], [2, 1], [-2, 0], [2, 0], [-1, 0], [1, 0], [-1, -1], [1, -1]
 ];
 const GRAVITY_CANDIDATES_FAMILY_32 = [
-  [0, 2], [-1, 2], [1, 2], [-2, 2], [2, 2], [-2, 1], [2, 1], [-2, 0],
-  [2, 0], [-1, 1], [1, 1], [0, 1],
-  [0, -1], [-1, -1], [1, -1], [-2, -1], [2, -1],
-  [0, -2], [-1, -2], [1, -2], [-2, -2], [2, -2]
+  [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0]
 ];
 
 function __rotateGravityCandidates(baseCandidates, bucketCount) {
@@ -1737,6 +1734,85 @@ const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = __rotateGravityCandidates(GRAVITY_CANDID
 const GRAVITY_BUCKET_OFFSETS_RADIUS_2_32 = __rotateGravityCandidates(GRAVITY_CANDIDATES_RADIUS_2_32, 32);
 const GRAVITY_BUCKET_OFFSETS_FAMILY_32 =
   __rotateFamilyGravityCandidates(GRAVITY_CANDIDATES_FAMILY_32, 32);
+const FAMILY32_BUCKET_CONFIGS = new Array(32);
+
+function __pushFamily32Offset(offsets, dx, dy) {
+  if (dx === 0 && dy === 0) return;
+  for (var i = 0; i < offsets.length; i++) {
+    const offset = offsets[i];
+    if (offset[0] === dx && offset[1] === dy) return;
+  }
+  offsets.push([dx, dy]);
+}
+
+function __getFamily32BucketConfig(bucketIdx) {
+  var config = FAMILY32_BUCKET_CONFIGS[bucketIdx];
+  if (config) return config;
+
+  const vector = TILT_BUCKET_VECTORS_32[bucketIdx];
+  const dx = vector[0];
+  const dy = vector[1];
+  const absDx = dx < 0 ? -dx : dx;
+  const absDy = dy < 0 ? -dy : dy;
+  const stepX = dx === 0 ? 0 : (dx > 0 ? 1 : -1);
+  const stepY = dy === 0 ? 0 : (dy > 0 ? 1 : -1);
+  const primaryOffsets = [];
+  const secondaryOffsets = [];
+  const horizontalDominant = absDx > absDy;
+  const major = horizontalDominant ? absDx : absDy;
+  const minor = horizontalDominant ? absDy : absDx;
+  const forwardY = stepY === 0 ? 1 : stepY;
+  const leadDiagX = stepX === 0 ? -1 : stepX;
+  const trailDiagX = -leadDiagX;
+
+  if (horizontalDominant && stepX !== 0) {
+    __pushFamily32Offset(primaryOffsets, stepX, 0);
+    __pushFamily32Offset(primaryOffsets, stepX, forwardY);
+    __pushFamily32Offset(primaryOffsets, 0, forwardY);
+    __pushFamily32Offset(primaryOffsets, stepX, -forwardY);
+    __pushFamily32Offset(primaryOffsets, 0, -forwardY);
+    __pushFamily32Offset(secondaryOffsets, stepX, forwardY);
+    __pushFamily32Offset(secondaryOffsets, stepX, 0);
+    __pushFamily32Offset(secondaryOffsets, 0, forwardY);
+    __pushFamily32Offset(secondaryOffsets, stepX, -forwardY);
+    __pushFamily32Offset(secondaryOffsets, 0, -forwardY);
+  } else {
+    __pushFamily32Offset(primaryOffsets, 0, forwardY);
+    __pushFamily32Offset(primaryOffsets, leadDiagX, forwardY);
+    __pushFamily32Offset(primaryOffsets, trailDiagX, forwardY);
+    __pushFamily32Offset(primaryOffsets, leadDiagX, 0);
+    __pushFamily32Offset(primaryOffsets, trailDiagX, 0);
+    __pushFamily32Offset(secondaryOffsets, leadDiagX, forwardY);
+    __pushFamily32Offset(secondaryOffsets, 0, forwardY);
+    __pushFamily32Offset(secondaryOffsets, trailDiagX, forwardY);
+    __pushFamily32Offset(secondaryOffsets, leadDiagX, 0);
+    __pushFamily32Offset(secondaryOffsets, trailDiagX, 0);
+  }
+
+  if (secondaryOffsets.length === 0) {
+    for (var i = 0; i < primaryOffsets.length; i++) {
+      __pushFamily32Offset(secondaryOffsets, primaryOffsets[i][0], primaryOffsets[i][1]);
+    }
+  }
+
+  config = {
+    primaryOffsets: primaryOffsets,
+    secondaryOffsets: secondaryOffsets,
+    minorShare: major === 0 ? 0 : Math.round((minor * 8) / major),
+    mirrorX: stepX < 0,
+    mirrorY: stepY < 0
+  };
+  FAMILY32_BUCKET_CONFIGS[bucketIdx] = config;
+  return config;
+}
+
+function __family32Phase(x, y) {
+  var phaseX = x;
+  var phaseY = y;
+  if (__frameGravityMirrorX) phaseX = MAX_X_IDX - phaseX;
+  if (__frameGravityMirrorY) phaseY = MAX_Y_IDX - phaseY;
+  return (phaseX + phaseY * 3 + tiltTraversalPhase) & 7;
+}
 
 function getGravityMode() {
   return gravityExperimentMode;
@@ -1759,9 +1835,16 @@ var __frameGravityChanceScale = 1;
 var __frameGravityIsBaseline = true;
 var __frameGravityFlat = null;
 var __frameGravityFlatAlt = null;
+var __frameGravityFlatAlt2 = null;
+var __frameGravityFlatAlt3 = null;
 var __frameGravityInverseFlat = null;
 var __frameGravityInverseFlatAlt = null;
+var __frameGravityInverseFlatAlt2 = null;
+var __frameGravityInverseFlatAlt3 = null;
 var __frameGravityFlatLen = 0;
+var __frameGravityMinorShare = 0;
+var __frameGravityMirrorX = false;
+var __frameGravityMirrorY = false;
 
 function __buildFlatOffsets(offsets, invert) {
   const n = offsets.length;
@@ -1782,10 +1865,32 @@ function __buildFlatOffsets(offsets, invert) {
 }
 
 function __buildFlatOffsetsAlt(flat, flatLen) {
-  if (flatLen < 10) return flat;
+  if (flatLen < 15) return flat;
   const alt = new Int32Array(flat);
-  /* Swap first two candidates (stride-5 entries) */
-  for (var k = 0; k < 5; k++) {
+  /* Keep the primary candidate fixed; rotate only the fallback candidates. */
+  for (var k = 5; k < 10; k++) {
+    const tmp = alt[k];
+    alt[k] = alt[k + 5];
+    alt[k + 5] = tmp;
+  }
+  return alt;
+}
+
+function __buildFlatOffsetsAlt2(flat, flatLen) {
+  if (flatLen < 20) return flat;
+  const alt = new Int32Array(flat);
+  for (var k = 5; k < 15; k++) {
+    const tmp = alt[k];
+    alt[k] = alt[k + 10];
+    alt[k + 10] = tmp;
+  }
+  return alt;
+}
+
+function __buildFlatOffsetsAlt3(flat, flatLen) {
+  if (flatLen < 25) return flat;
+  const alt = new Int32Array(flat);
+  for (var k = 5; k < 20; k++) {
     const tmp = alt[k];
     alt[k] = alt[k + 5];
     alt[k + 5] = tmp;
@@ -1799,9 +1904,16 @@ function syncFrameGravity() {
     __frameGravityOffsets = null;
     __frameGravityFlat = null;
     __frameGravityFlatAlt = null;
+    __frameGravityFlatAlt2 = null;
+    __frameGravityFlatAlt3 = null;
     __frameGravityInverseFlat = null;
     __frameGravityInverseFlatAlt = null;
+    __frameGravityInverseFlatAlt2 = null;
+    __frameGravityInverseFlatAlt3 = null;
     __frameGravityFlatLen = 0;
+    __frameGravityMinorShare = 0;
+    __frameGravityMirrorX = false;
+    __frameGravityMirrorY = false;
     __frameGravityChanceScale = 1;
     __frameGravityIsBaseline = true;
     return;
@@ -1817,23 +1929,49 @@ function syncFrameGravity() {
     __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx];
   else if (mode === "radius2-32")
     __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2_32[bucketIdx];
-  else if (mode === "family32")
-    __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_FAMILY_32[bucketIdx];
+  else if (mode === "family32") {
+    const familyConfig = __getFamily32BucketConfig(bucketIdx);
+    __frameGravityOffsets = familyConfig.primaryOffsets;
+    __frameGravityMinorShare = familyConfig.minorShare;
+    __frameGravityMirrorX = familyConfig.mirrorX;
+    __frameGravityMirrorY = familyConfig.mirrorY;
+  }
   else
     __frameGravityOffsets = null;
 
   if (__frameGravityOffsets !== null) {
     __frameGravityFlatLen = __frameGravityOffsets.length * 5;
     __frameGravityFlat = __buildFlatOffsets(__frameGravityOffsets, false);
-    __frameGravityFlatAlt = __buildFlatOffsetsAlt(__frameGravityFlat, __frameGravityFlatLen);
     __frameGravityInverseFlat = __buildFlatOffsets(__frameGravityOffsets, true);
-    __frameGravityInverseFlatAlt = __buildFlatOffsetsAlt(__frameGravityInverseFlat, __frameGravityFlatLen);
+    if (mode === "family32") {
+      const familyConfig = __getFamily32BucketConfig(bucketIdx);
+      __frameGravityFlatAlt = __buildFlatOffsets(familyConfig.secondaryOffsets, false);
+      __frameGravityFlatAlt2 = null;
+      __frameGravityFlatAlt3 = null;
+      __frameGravityInverseFlatAlt = __buildFlatOffsets(familyConfig.secondaryOffsets, true);
+      __frameGravityInverseFlatAlt2 = null;
+      __frameGravityInverseFlatAlt3 = null;
+    } else {
+      __frameGravityFlatAlt = __buildFlatOffsetsAlt(__frameGravityFlat, __frameGravityFlatLen);
+      __frameGravityFlatAlt2 = __buildFlatOffsetsAlt2(__frameGravityFlat, __frameGravityFlatLen);
+      __frameGravityFlatAlt3 = __buildFlatOffsetsAlt3(__frameGravityFlat, __frameGravityFlatLen);
+      __frameGravityInverseFlatAlt = __buildFlatOffsetsAlt(__frameGravityInverseFlat, __frameGravityFlatLen);
+      __frameGravityInverseFlatAlt2 = __buildFlatOffsetsAlt2(__frameGravityInverseFlat, __frameGravityFlatLen);
+      __frameGravityInverseFlatAlt3 = __buildFlatOffsetsAlt3(__frameGravityInverseFlat, __frameGravityFlatLen);
+    }
   } else {
     __frameGravityFlat = null;
     __frameGravityFlatAlt = null;
+    __frameGravityFlatAlt2 = null;
+    __frameGravityFlatAlt3 = null;
     __frameGravityInverseFlat = null;
     __frameGravityInverseFlatAlt = null;
+    __frameGravityInverseFlatAlt2 = null;
+    __frameGravityInverseFlatAlt3 = null;
     __frameGravityFlatLen = 0;
+    __frameGravityMinorShare = 0;
+    __frameGravityMirrorX = false;
+    __frameGravityMirrorY = false;
   }
 }
 
@@ -1843,7 +1981,18 @@ function scaleGravityChance(chance) {
 }
 
 function __findFlatMove(x, y, i, flat, flatAlt, flatLen, targetElem) {
-  const f = (x ^ y) & 1 ? flatAlt : flat;
+  var candidateOffsets = flat;
+  if (gravityExperimentMode === "family32") {
+    const phase = __family32Phase(x, y);
+    if (phase < __frameGravityMinorShare && flatAlt !== null) candidateOffsets = flatAlt;
+  } else {
+    const lineJitter = ((x >> 2) + y) & 3;
+    const jitter = (x + y * 3 + lineJitter) & 3;
+    if (jitter === 1) candidateOffsets = flatAlt;
+    else if (jitter === 2 && __frameGravityFlatAlt2 !== null) candidateOffsets = __frameGravityFlatAlt2;
+    else if (jitter === 3 && __frameGravityFlatAlt3 !== null) candidateOffsets = __frameGravityFlatAlt3;
+  }
+  const f = candidateOffsets;
   for (var j = 0; j < flatLen; j += 5) {
     if (x >= f[j + 1] && x <= f[j + 2] && y >= f[j + 3] && y <= f[j + 4]) {
       const nextI = i + f[j];
@@ -1853,7 +2002,83 @@ function __findFlatMove(x, y, i, flat, flatAlt, flatLen, targetElem) {
   return -1;
 }
 
+function findTiltRiseLoc(x, y, i) {
+  if (__frameGravityInverseFlat !== null) {
+    var flat = __frameGravityInverseFlat;
+    if (gravityExperimentMode === "family32") {
+      const phase = __family32Phase(x, y);
+      if (phase < __frameGravityMinorShare && __frameGravityInverseFlatAlt !== null)
+        flat = __frameGravityInverseFlatAlt;
+    } else {
+      const lineJitter = ((x >> 2) + y) & 3;
+      const jitter = (x + y * 3 + lineJitter) & 3;
+      if (jitter === 1 && __frameGravityInverseFlatAlt !== null) flat = __frameGravityInverseFlatAlt;
+      else if (jitter === 2 && __frameGravityInverseFlatAlt2 !== null) flat = __frameGravityInverseFlatAlt2;
+      else if (jitter === 3 && __frameGravityInverseFlatAlt3 !== null) flat = __frameGravityInverseFlatAlt3;
+    }
+    return __findFlatMove(x, y, i, flat, flat, __frameGravityFlatLen, BACKGROUND);
+  }
+  return above(y, i, BACKGROUND);
+}
+
+function findTiltGasLoc(x, y, i) {
+  if (__frameGravityInverseFlat !== null) {
+    var flat = __frameGravityInverseFlat;
+    if (gravityExperimentMode === "family32") {
+      const phase = __family32Phase(x, y);
+      if (phase < __frameGravityMinorShare && __frameGravityInverseFlatAlt !== null)
+        flat = __frameGravityInverseFlatAlt;
+    } else {
+      const lineJitter = ((x >> 2) + y) & 3;
+      const jitter = (x + y * 3 + lineJitter) & 3;
+      if (jitter === 1 && __frameGravityInverseFlatAlt !== null) flat = __frameGravityInverseFlatAlt;
+      else if (jitter === 2 && __frameGravityInverseFlatAlt2 !== null) flat = __frameGravityInverseFlatAlt2;
+      else if (jitter === 3 && __frameGravityInverseFlatAlt3 !== null) flat = __frameGravityInverseFlatAlt3;
+    }
+    for (var j = 0; j < __frameGravityFlatLen; j += 5) {
+      if (x >= flat[j + 1] && x <= flat[j + 2] && y >= flat[j + 3] && y <= flat[j + 4]) {
+        const nextI = i + flat[j];
+        if (gasPermeable(gameImagedata32[nextI])) return nextI;
+      }
+    }
+  }
+  return -1;
+}
+
+function produceTiltFire(x, y, i, chance) {
+  if (random() >= chance) return false;
+  const riseLoc = findTiltRiseLoc(x, y, i);
+  if (riseLoc === -1) return false;
+  gameImagedata32[riseLoc] = FIRE;
+  return true;
+}
+
+function doGravityBaseline(x, y, i, fallAdjacent, chance) {
+  if (random() >= chance) return false;
+
+  if (y === MAX_Y_IDX) {
+    gameImagedata32[i] = BACKGROUND;
+    return true;
+  }
+
+  var newI;
+  if (fallAdjacent) newI = belowAdjacent(x, y, i, BACKGROUND);
+  else newI = below(y, i, BACKGROUND);
+
+  if (newI === -1 && fallAdjacent) newI = adjacent(x, i, BACKGROUND);
+
+  if (newI !== -1) {
+    gameImagedata32[newI] = gameImagedata32[i];
+    gameImagedata32[i] = BACKGROUND;
+    return true;
+  }
+
+  return false;
+}
+
 function doGravity(x, y, i, fallAdjacent, chance) {
+  if (__frameGravityIsBaseline)
+    return doGravityBaseline(x, y, i, fallAdjacent, chance);
   if (random() >= scaleGravityChance(chance)) return false;
 
   if (__frameGravityFlat !== null) {
@@ -1887,6 +2112,30 @@ function doGravity(x, y, i, fallAdjacent, chance) {
   return false;
 }
 
+function doRiseBaseline(x, y, i, riseChance, adjacentChance) {
+  var newI = -1;
+
+  if (random() < riseChance) {
+    if (y === 0) {
+      gameImagedata32[i] = BACKGROUND;
+      return true;
+    } else {
+      newI = aboveAdjacent(x, y, i, BACKGROUND);
+    }
+  }
+
+  if (newI === -1 && random() < adjacentChance)
+    newI = adjacent(x, i, BACKGROUND);
+
+  if (newI !== -1) {
+    gameImagedata32[newI] = gameImagedata32[i];
+    gameImagedata32[i] = BACKGROUND;
+    return true;
+  }
+
+  return false;
+}
+
 /*
  * Note that this will not behave *exactly* like an inverse to
  * the gravity function. This is because the assumption that
@@ -1895,6 +2144,8 @@ function doGravity(x, y, i, fallAdjacent, chance) {
  * from bottom to top).
  */
 function doRise(x, y, i, riseChance, adjacentChance) {
+  if (__frameGravityIsBaseline)
+    return doRiseBaseline(x, y, i, riseChance, adjacentChance);
   var newI = -1;
   const scaledRiseChance = scaleGravityChance(riseChance);
   const scaledAdjacentChance = scaleGravityChance(adjacentChance);
@@ -1924,7 +2175,25 @@ function doRise(x, y, i, riseChance, adjacentChance) {
 }
 
 /* Sink the current solid element if it is on top of heavierThan */
+function doDensitySinkBaseline(x, y, i, heavierThan, sinkAdjacent, chance) {
+  if (random() >= chance) return false;
+
+  if (y === MAX_Y_IDX) return false;
+
+  var newI;
+  if (sinkAdjacent) newI = belowAdjacent(x, y, i, heavierThan);
+  else newI = below(y, i, heavierThan);
+
+  if (newI === -1) return false;
+
+  gameImagedata32[newI] = gameImagedata32[i];
+  gameImagedata32[i] = heavierThan;
+  return true;
+}
+
 function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
+  if (__frameGravityIsBaseline)
+    return doDensitySinkBaseline(x, y, i, heavierThan, sinkAdjacent, chance);
   if (random() >= scaleGravityChance(chance)) return false;
 
   if (y === MAX_Y_IDX) return false;
@@ -1941,7 +2210,24 @@ function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
 }
 
 /* Sink the current liquid element if it is on top of heavierThan */
+function doDensityLiquidBaseline(x, y, i, heavierThan, sinkChance, equalizeChance) {
+  var newI = -1;
+
+  if (random() < sinkChance) newI = belowAdjacent(x, y, i, heavierThan);
+
+  if (newI === -1 && random() < equalizeChance)
+    newI = adjacent(x, i, heavierThan);
+
+  if (newI === -1) return false;
+
+  gameImagedata32[newI] = gameImagedata32[i];
+  gameImagedata32[i] = heavierThan;
+  return true;
+}
+
 function doDensityLiquid(x, y, i, heavierThan, sinkChance, equalizeChance) {
+  if (__frameGravityIsBaseline)
+    return doDensityLiquidBaseline(x, y, i, heavierThan, sinkChance, equalizeChance);
   var newI = -1;
 
   if (random() < scaleGravityChance(sinkChance)) newI = belowAdjacent(x, y, i, heavierThan);
@@ -2103,7 +2389,23 @@ function gasPermeable(elem) {
 
 /* allow elements to fall through/displace gas elements */
 function doDensityGas(x, y, i, chance) {
-  if (random() >= chance) return false;
+  if (__frameGravityIsBaseline) return doDensityGasVertical(x, y, i, chance);
+  if (random() >= scaleGravityChance(chance)) return false;
+
+  if (__frameGravityInverseFlat !== null) {
+    const swapSpot = findTiltGasLoc(x, y, i);
+    if (swapSpot === -1) return false;
+
+    const gasElem = gameImagedata32[i];
+    gameImagedata32[i] = gameImagedata32[swapSpot];
+    gameImagedata32[swapSpot] = gasElem;
+    return true;
+  }
+
+  return doDensityGasVertical(x, y, i);
+}
+
+function doDensityGasVertical(x, y, i) {
 
   if (y === 0) return false;
 

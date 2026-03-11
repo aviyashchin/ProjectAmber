@@ -59,12 +59,18 @@ var lastLoop = 0;
 var frameDebt = 0;
 var lastFPSLabelUpdate = 0;
 const refreshTimes = [];
-var gravityExperimentMode = "default";
-var gravityBucketCount = 16;
+var gravityExperimentMode = "family32";
+var gravityBucketCount = 32;
 var gravityBucketIndex = 0;
 var gravityStrength = 1;
+var tiltTraversalPhase = 0;
+var tiltMotionListenerAttached = false;
+var tiltMotionPermissionState = "unknown";
+var tiltMotionVectorX = 0;
+var tiltMotionVectorY = 0;
+var tiltMotionVectorZ = 1;
 const gravityState = {
-  strategy: "baseline",
+  strategy: "family32",
   bucket: 0,
   family: 0,
   strength: 1
@@ -85,6 +91,8 @@ const FAMILY_DIRECTION_VECTORS = Object.freeze([
   [-1, 0],
   [-1, 1]
 ]);
+const tiltRowTraversalModes = new Uint8Array(height);
+const tiltColumnTraversalModes = new Uint8Array(width);
 const traversalFamilyDescriptors = [];
 const traversalBucketDescriptors = [];
 
@@ -133,6 +141,44 @@ window.setTiltDeviceGravity = function (x, y, z) {
   projectTiltVector(x, y, z);
 };
 
+window.enableTiltMotionControls = enableTiltMotionControls;
+
+async function lockGameOrientation(mode) {
+  if (
+    typeof screen === "undefined" ||
+    !screen.orientation ||
+    typeof screen.orientation.lock !== "function"
+  ) return false;
+
+  try {
+    await screen.orientation.lock(mode);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+function unlockGameOrientation() {
+  if (
+    typeof screen === "undefined" ||
+    !screen.orientation ||
+    typeof screen.orientation.unlock !== "function"
+  ) return false;
+
+  try {
+    screen.orientation.unlock();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+if (window.projectAmberPlatform && window.projectAmberPlatform.device) {
+  window.projectAmberPlatform.device.enableTilt = enableTiltMotionControls;
+  window.projectAmberPlatform.device.lockOrientation = lockGameOrientation;
+  window.projectAmberPlatform.device.unlockOrientation = unlockGameOrientation;
+}
+
 window.getTiltBenchmarkState = function () {
   return {
     strategy: gravityState.strategy,
@@ -175,6 +221,88 @@ function syncTiltModeCheckbox() {
   tiltModeCheckbox.checked = gravityState.strategy === "family32";
 }
 
+function getScreenOrientationAngle() {
+  var angle = 0;
+  if (typeof screen !== "undefined" && screen.orientation && typeof screen.orientation.angle === "number")
+    angle = screen.orientation.angle;
+  else if (typeof window.orientation === "number")
+    angle = window.orientation;
+  angle = angle % 360;
+  if (angle < 0) angle += 360;
+  return angle;
+}
+
+function clampTiltAxis(value, maxTilt) {
+  if (typeof value !== "number" || !isFinite(value)) return 0;
+  if (value > maxTilt) return 1;
+  if (value < -maxTilt) return -1;
+  return value / maxTilt;
+}
+
+function mapDeviceOrientationToGravity(beta, gamma) {
+  const maxTilt = 45;
+  const frontBack = clampTiltAxis(beta, maxTilt);
+  const sideToSide = clampTiltAxis(gamma, maxTilt);
+  const orientation = getScreenOrientationAngle();
+  var screenX = sideToSide;
+  var screenY = frontBack;
+
+  if (orientation === 90) {
+    screenX = frontBack;
+    screenY = -sideToSide;
+  } else if (orientation === 180) {
+    screenX = -sideToSide;
+    screenY = -frontBack;
+  } else if (orientation === 270) {
+    screenX = -frontBack;
+    screenY = sideToSide;
+  }
+
+  const radial = Math.min(1, Math.sqrt(screenX * screenX + screenY * screenY));
+  const scale = radial > 1 ? 1 / radial : 1;
+  screenX *= scale;
+  screenY *= scale;
+  return [screenX, screenY, Math.sqrt(Math.max(0, 1 - radial * radial))];
+}
+
+function handleTiltOrientation(event) {
+  if (gravityState.strategy !== "family32") return;
+  const mapped = mapDeviceOrientationToGravity(event.beta, event.gamma);
+  const smoothing = 0.35;
+  tiltMotionVectorX += (mapped[0] - tiltMotionVectorX) * smoothing;
+  tiltMotionVectorY += (mapped[1] - tiltMotionVectorY) * smoothing;
+  tiltMotionVectorZ += (mapped[2] - tiltMotionVectorZ) * smoothing;
+  projectTiltVector(tiltMotionVectorX, tiltMotionVectorY, tiltMotionVectorZ);
+}
+
+async function enableTiltMotionControls() {
+  if (typeof DeviceOrientationEvent === "undefined") {
+    tiltMotionPermissionState = "unsupported";
+    return false;
+  }
+
+  if (
+    typeof DeviceOrientationEvent.requestPermission === "function" &&
+    tiltMotionPermissionState !== "granted"
+  ) {
+    try {
+      tiltMotionPermissionState = await DeviceOrientationEvent.requestPermission();
+    } catch (err) {
+      tiltMotionPermissionState = "denied";
+      return false;
+    }
+    if (tiltMotionPermissionState !== "granted") return false;
+  } else if (tiltMotionPermissionState === "unknown") {
+    tiltMotionPermissionState = "granted";
+  }
+
+  if (!tiltMotionListenerAttached) {
+    window.addEventListener("deviceorientation", handleTiltOrientation, true);
+    tiltMotionListenerAttached = true;
+  }
+  return true;
+}
+
 function projectTiltVector(x, y, z) {
   const screenX = typeof x === "number" ? x : 0;
   const screenY = typeof y === "number" ? y : 0;
@@ -204,6 +332,16 @@ function fillBenchmarkBand(elem, startRatio, endRatio) {
     for (x = startX; x < endX; x++) {
       if (random() < 85) gameImagedata32[rowOffset + x] = elem;
     }
+  }
+}
+
+function initTiltTraversalModes() {
+  var i;
+  for (i = 0; i < height; i++) {
+    tiltRowTraversalModes[i] = ((i * 5) ^ (i >> 1)) & 3;
+  }
+  for (i = 0; i < width; i++) {
+    tiltColumnTraversalModes[i] = ((i * 3) ^ (i >> 2)) & 3;
   }
 }
 
@@ -303,8 +441,12 @@ function init() {
   initParticles();
   initSpigots();
   initMenu();
+  if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+    window.projectAmberPlatform.haptics.init();
+  }
   if (typeof initTooltips === "function") initTooltips();
   initSoftBody();
+  initTiltTraversalModes();
   initTraversalDescriptors();
   syncGravityState();
   syncTiltModeCheckbox();
@@ -330,6 +472,7 @@ function setFPS(fps) {
   else drawFPSLabel(0);
 }
 function updateGame() {
+  tiltTraversalPhase = (tiltTraversalPhase + 1) & 7;
   syncFrameGravity();
   updateSpigots();
   updateParticles();
@@ -394,19 +537,23 @@ function updateGame() {
 }
 
 function updateGameFamily32() {
-  const family = gravityState.family;
-  if (family === 2) {
-    updateGameColumns(MAX_X_IDX, -1, -1, MAX_X_IDX & 1);
+  const bucketVector = TILT_BUCKET_VECTORS_32[gravityState.bucket];
+  const dx = bucketVector[0];
+  const dy = bucketVector[1];
+  const absDx = dx < 0 ? -dx : dx;
+  const absDy = dy < 0 ? -dy : dy;
+
+  if (absDx > absDy) {
+    if (dx > 0) updateGameColumns(MAX_X_IDX, -1, -1, MAX_X_IDX & 1);
+    else updateGameColumns(0, width, 1, 0);
     return;
   }
-  if (family === 6) {
-    updateGameColumns(0, width, 1, 0);
-    return;
-  }
-  if (family === 4 || family === 3 || family === 5) {
+
+  if (dy < 0) {
     updateGameRows(0, height, 1, 0);
     return;
   }
+
   updateGameRows(MAX_Y_IDX, -1, -1, MAX_Y_IDX & 1);
 }
 
@@ -416,7 +563,34 @@ function updateGameRows(yStart, yStop, yStep, direction) {
 
   for (y = yStart; y !== yStop; y += yStep) {
     const Y = y;
-    if ((Y & 1) === direction) {
+    const lineJitter = (tiltRowTraversalModes[Y] + tiltTraversalPhase) & 3;
+    if (lineJitter === 0 || lineJitter === 3) {
+      i = MAX_X_IDX + Y * width;
+      for (x = MAX_X_IDX; x !== -1; x--) {
+        const elem = gameImagedata32[i];
+        if (elem === BACKGROUND) {
+          i--;
+          continue;
+        }
+        const elem_idx =
+          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+        elementActions[elem_idx](x, Y, i);
+        i--;
+      }
+    } else if (lineJitter === 1) {
+      i = Y * width;
+      for (x = 0; x !== width; x++) {
+        const elem = gameImagedata32[i];
+        if (elem === BACKGROUND) {
+          i++;
+          continue;
+        }
+        const elem_idx =
+          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+        elementActions[elem_idx](x, Y, i);
+        i++;
+      }
+    } else if ((Y & 1) === direction) {
       i = MAX_X_IDX + Y * width;
       for (x = MAX_X_IDX; x !== -1; x--) {
         const elem = gameImagedata32[i];
@@ -452,7 +626,30 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
 
   for (x = xStart; x !== xStop; x += xStep) {
     const X = x;
-    if ((X & 1) === direction) {
+    const lineJitter = (tiltColumnTraversalModes[X] + tiltTraversalPhase) & 3;
+    if (lineJitter === 0 || lineJitter === 3) {
+      i = x + MAX_Y_IDX * width;
+      for (y = MAX_Y_IDX; y !== -1; y--) {
+        const elem = gameImagedata32[i];
+        if (elem !== BACKGROUND) {
+          const elem_idx =
+            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+          elementActions[elem_idx](X, y, i);
+        }
+        i -= width;
+      }
+    } else if (lineJitter === 1) {
+      i = x;
+      for (y = 0; y !== height; y++) {
+        const elem = gameImagedata32[i];
+        if (elem !== BACKGROUND) {
+          const elem_idx =
+            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+          elementActions[elem_idx](X, y, i);
+        }
+        i += width;
+      }
+    } else if ((X & 1) === direction) {
       i = x + MAX_Y_IDX * width;
       for (y = MAX_Y_IDX; y !== -1; y--) {
         const elem = gameImagedata32[i];
