@@ -309,19 +309,7 @@ function SAND_ACTION(x, y, i) {
 }
 
 function WATER_ACTION(x, y, i) {
-  if (
-    typeof sunExposureField !== "undefined" &&
-    typeof getTemperatureAt === "function" &&
-    sunExposureField[i] === 1 &&
-    getTemperatureAt(i) >= TEMP_WATER_EVAPORATES &&
-    random() < 6
-  ) {
-    gameImagedata32[i] = STEAM;
-    return;
-  }
-
   if (random() < 4 && bordering(x, y, i, SUN) !== -1) {
-    if (typeof addTemperatureAt === "function") addTemperatureAt(i, 3);
     if (random() < 50) {
       gameImagedata32[i] = STEAM;
       return;
@@ -347,17 +335,6 @@ function PLANT_ACTION(x, y, i) {
     growChance = 35;
   }
   doGrow(x, y, i, WATER, growChance);
-
-  if (
-    typeof getTemperatureAt === "function" &&
-    getTemperatureAt(i) >= TEMP_PLANT_STRESS &&
-    borderingAdjacent(x, y, i, WATER) === -1 &&
-    borderingAdjacent(x, y, i, WET_SOIL) === -1 &&
-    random() < 3
-  ) {
-    gameImagedata32[i] = BACKGROUND;
-    return;
-  }
 
   if (random() < 5) {
     const saltLoc = bordering(x, y, i, SALT);
@@ -856,15 +833,6 @@ function STEAM_ACTION(x, y, i) {
   if (doDensityGas(x, y, i, 70)) return;
   if (doRise(x, y, i, 70, 60)) return;
 
-  if (
-    typeof getTemperatureAt === "function" &&
-    getTemperatureAt(i) <= TEMP_STEAM_CONDENSES &&
-    random() < 6
-  ) {
-    gameImagedata32[i] = y < Math.floor(height / 3) ? CLOUD : WATER;
-    return;
-  }
-
   /* condense due to water */
   if (random() < 5) {
     if (bordering(x, y, i, WATER) !== -1) {
@@ -890,6 +858,11 @@ function STEAM_ACTION(x, y, i) {
     }
   }
 
+  if (random() < 4 && y < Math.floor(height / 3)) {
+    gameImagedata32[i] = CLOUD;
+    return;
+  }
+
   /* steam may be trapped; disappear slowly */
   if (random() < 1 && random() < 5) {
     if (below(y, i, STEAM) === -1) {
@@ -900,10 +873,6 @@ function STEAM_ACTION(x, y, i) {
 }
 
 function CLOUD_ACTION(x, y, i) {
-  if (typeof getTemperatureAt === "function" && getTemperatureAt(i) > TEMP_RAIN_CLOUDS) {
-    addTemperatureAt(i, -1);
-  }
-
   if (doDensityGas(x, y, i, 55)) return;
   if (doRise(x, y, i, 35, 45)) return;
 
@@ -916,7 +885,7 @@ function CLOUD_ACTION(x, y, i) {
     }
   }
 
-  if (typeof getTemperatureAt === "function" && getTemperatureAt(i) > TEMP_WATER_EVAPORATES && random() < 4) {
+  if (random() < 2 && borderingAdjacent(x, y, i, SUN) !== -1) {
     gameImagedata32[i] = STEAM;
   }
 }
@@ -957,7 +926,6 @@ function SUN_ACTION(x, y, i) {
     for (xIter = xStart; xIter !== xEnd; xIter++) {
       const idx = idxBase + xIter;
       if (idx === i) continue;
-      if (typeof addTemperatureAt === "function") addTemperatureAt(idx, 2);
 
       const elem = gameImagedata32[idx];
       if ((elem === WATER || elem === RAIN) && random() < 12) {
@@ -976,8 +944,8 @@ function SUN_ACTION(x, y, i) {
         gameImagedata32[idx] = STEAM;
       } else if (elem === ICE && random() < 10) {
         gameImagedata32[idx] = WATER;
-      } else if ((elem === SOIL || elem === WET_SOIL) && typeof addTemperatureAt === "function") {
-        addTemperatureAt(idx, 1);
+      } else if (elem === WET_SOIL && random() < 6 && borderingAdjacent(xIter, yIter, idx, WATER) === -1) {
+        gameImagedata32[idx] = SOIL;
       }
     }
   }
@@ -1031,8 +999,6 @@ function CRYO_ACTION(x, y, i) {
       const borderingElem = gameImagedata32[idx];
 
       if (borderingElem === CRYO || borderingElem === BLACK_HOLE) continue;
-
-      if (typeof addTemperatureAt === "function") addTemperatureAt(idx, -2);
 
       if ((borderingElem === WATER || borderingElem === RAIN) && random() < 25) {
         gameImagedata32[idx] = ICE;
@@ -1179,10 +1145,7 @@ function WET_SOIL_ACTION(x, y, i) {
   if (doDensitySink(x, y, i, SALT_WATER, true, 50)) return;
 
   if (
-    typeof sunExposureField !== "undefined" &&
-    typeof getTemperatureAt === "function" &&
-    sunExposureField[i] === 1 &&
-    getTemperatureAt(i) >= TEMP_SOIL_DRIES &&
+    borderingAdjacent(x, y, i, SUN) !== -1 &&
     borderingAdjacent(x, y, i, WATER) === -1 &&
     random() < 4
   ) {

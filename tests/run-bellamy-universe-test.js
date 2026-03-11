@@ -6,8 +6,7 @@ const {
   testPlantGrowthUsesLocalChecks,
   testWeatherStateAndForceFamilies,
   testColorFamiliesStayCoherent,
-  testTemperatureLoopIsSparse,
-  testSunlightChecksAreBounded,
+  testNoTemperatureControlPlaneRemains,
   testMethaneStaysLocalAndCheap,
   testBlackHoleStaysLocal
 } = require("./bellamyUniverse.test.js");
@@ -20,8 +19,7 @@ try {
   testPlantGrowthUsesLocalChecks();
   testWeatherStateAndForceFamilies();
   testColorFamiliesStayCoherent();
-  testTemperatureLoopIsSparse();
-  testSunlightChecksAreBounded();
+  testNoTemperatureControlPlaneRemains();
   testMethaneStaysLocalAndCheap();
   testBlackHoleStaysLocal();
   console.log("PASS Bellamy universe regression");

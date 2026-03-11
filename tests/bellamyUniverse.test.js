@@ -15,13 +15,13 @@ function testUniverseScriptsAreLoaded() {
   const indexSource = read("index.html");
 
   assert(
-    indexSource.includes('src="scripts/temperature.js"'),
-    "index.html should load scripts/temperature.js"
+    indexSource.includes('src="scripts/tooltips.js"'),
+    "index.html should load scripts/tooltips.js"
   );
 
   assert(
-    indexSource.includes('src="scripts/tooltips.js"'),
-    "index.html should load scripts/tooltips.js"
+    !indexSource.includes('src="scripts/temperature.js"'),
+    "index.html should not load scripts/temperature.js in fast local sandbox mode"
   );
 }
 
@@ -77,26 +77,15 @@ function testWeatherElementsExist() {
 
 function testTemperatureLoopExists() {
   const gameSource = read("scripts/game.js");
-  const temperatureSource = read("scripts/temperature.js");
 
   assert(
-    temperatureSource.includes("function initTemperature()"),
-    "temperature.js should initialize the temperature system"
+    !gameSource.includes("initTemperature"),
+    "game.js should not initialize a separate temperature system in fast local sandbox mode"
   );
 
   assert(
-    temperatureSource.includes("function applyTemperaturePhysics()"),
-    "temperature.js should define applyTemperaturePhysics()"
-  );
-
-  assert(
-    gameSource.includes("if (typeof initTemperature === \"function\") initTemperature();"),
-    "game.js should initialize the temperature system"
-  );
-
-  assert(
-    gameSource.includes("if (typeof applyTemperaturePhysics === \"function\") applyTemperaturePhysics();"),
-    "game.js should run the temperature system each frame"
+    !gameSource.includes("applyTemperaturePhysics"),
+    "game.js should not run a separate temperature system each frame in fast local sandbox mode"
   );
 }
 
@@ -145,8 +134,9 @@ function testPlantGrowthUsesLocalChecks() {
 
   assert(plantActionMatch, "elements.js should contain PLANT_ACTION body");
   assert(
-    !plantActionMatch[1].includes("isHeatedBySun("),
-    "PLANT_ACTION should avoid full-column sunlight scans"
+    !plantActionMatch[1].includes("isHeatedBySun(") &&
+    !plantActionMatch[1].includes("getTemperatureAt("),
+    "PLANT_ACTION should avoid extra sunlight or temperature scans"
   );
 
   assert(
@@ -183,11 +173,12 @@ function testWeatherStateAndForceFamilies() {
   const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
   assert(
+    !sunActionMatch[1].includes("addTemperatureAt(") &&
     sunActionMatch[1].includes("elem === PLANT") &&
     sunActionMatch[1].includes("elem === OIL") &&
     sunActionMatch[1].includes("elem === METHANE") &&
     sunActionMatch[1].includes("gameImagedata32[idx] = FIRE;"),
-    "SUN_ACTION should ignite nearby burnable elements like a gentler fire source"
+    "SUN_ACTION should use direct local heating rules without a separate temperature field"
   );
 }
 
@@ -211,37 +202,14 @@ function testColorFamiliesStayCoherent() {
   );
 }
 
-function testTemperatureLoopIsSparse() {
-  const temperatureSource = read("scripts/temperature.js");
-
-  assert(
-    temperatureSource.includes("var temperatureCursor = 0;"),
-    "temperature.js should track a rolling cursor for sparse updates"
-  );
-
-  assert(
-    temperatureSource.includes("const tempBudget = Math.max(1024, Math.floor(temperatureField.length / 6));"),
-    "temperature.js should update a bounded slice of the temperature field each frame"
-  );
-}
-
-function testSunlightChecksAreBounded() {
-  const temperatureSource = read("scripts/temperature.js");
+function testNoTemperatureControlPlaneRemains() {
   const elementsSource = read("scripts/elements.js");
 
   assert(
-    temperatureSource.includes("const sunExposureField = new Uint8Array(width * height);"),
-    "temperature.js should maintain a cached sunlight exposure field"
-  );
-
-  assert(
-    temperatureSource.includes("function rebuildSunExposureField()"),
-    "temperature.js should rebuild sunlight exposure in one bounded pass"
-  );
-
-  assert(
-    elementsSource.includes("sunExposureField[i] === 1"),
-    "elements.js should use cached sun exposure instead of repeated column scans"
+    !elementsSource.includes("getTemperatureAt(") &&
+    !elementsSource.includes("addTemperatureAt(") &&
+    !elementsSource.includes("sunExposureField"),
+    "elements.js should not depend on a separate temperature control plane"
   );
 }
 
@@ -282,8 +250,7 @@ module.exports = {
   testPlantGrowthUsesLocalChecks,
   testWeatherStateAndForceFamilies,
   testColorFamiliesStayCoherent,
-  testTemperatureLoopIsSparse,
-  testSunlightChecksAreBounded,
+  testNoTemperatureControlPlaneRemains,
   testMethaneStaysLocalAndCheap,
   testBlackHoleStaysLocal
 };
