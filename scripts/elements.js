@@ -1639,6 +1639,10 @@ const GRAVITY_CANDIDATES_RADIUS_2_32 = [
   [0, 2], [-1, 2], [1, 2], [0, 1], [-1, 1], [1, 1], [-2, 2], [2, 2],
   [-2, 1], [2, 1], [-2, 0], [2, 0], [-1, 0], [1, 0], [-1, -1], [1, -1]
 ];
+const GRAVITY_CANDIDATES_FAMILY_32 = [
+  [0, 2], [-1, 2], [1, 2], [-2, 2], [2, 2], [-2, 1], [2, 1], [-2, 0],
+  [2, 0], [-1, 1], [1, 1], [0, 1]
+];
 
 function __rotateGravityCandidates(baseCandidates, bucketCount) {
   const buckets = [];
@@ -1684,19 +1688,102 @@ function __rotateGravityCandidates(baseCandidates, bucketCount) {
   return buckets;
 }
 
+function __rotateFamilyGravityCandidates(baseCandidates, bucketCount) {
+  const buckets = [];
+  var bucketIdx;
+  for (bucketIdx = 0; bucketIdx < bucketCount; bucketIdx++) {
+    const angle = (bucketIdx * TWO_PI) / bucketCount;
+    const sinAngle = Math.sin(angle);
+    const cosAngle = Math.cos(angle);
+    const ranked = [];
+    var candidateIdx;
+    for (candidateIdx = 0; candidateIdx < baseCandidates.length; candidateIdx++) {
+      const candidate = baseCandidates[candidateIdx];
+      const worldX = candidate[0];
+      const worldY = candidate[1];
+      const forward = worldX * sinAngle + worldY * cosAngle;
+      const lateral = Math.abs(worldX * cosAngle - worldY * sinAngle);
+      const radius = Math.abs(worldX) + Math.abs(worldY);
+      const score = forward * 140 - lateral * 55 - radius * 2;
+      ranked.push({
+        offset: candidate,
+        score: score,
+        forward: forward,
+        lateral: lateral
+      });
+    }
+    ranked.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.forward !== a.forward) return b.forward - a.forward;
+      return a.lateral - b.lateral;
+    });
+
+    const bucketOffsets = [];
+    for (candidateIdx = 0; candidateIdx < ranked.length; candidateIdx++) {
+      if (ranked[candidateIdx].forward <= 0) continue;
+      bucketOffsets.push(ranked[candidateIdx].offset);
+    }
+    if (bucketOffsets.length === 0) bucketOffsets.push([0, 1]);
+    buckets.push(bucketOffsets);
+  }
+  return buckets;
+}
+
 const GRAVITY_BUCKET_OFFSETS_16 = __rotateGravityCandidates(GRAVITY_CANDIDATES_16, 16);
 const GRAVITY_BUCKET_OFFSETS_32 = __rotateGravityCandidates(GRAVITY_CANDIDATES_32, 32);
 const GRAVITY_BUCKET_OFFSETS_RADIUS_2 = __rotateGravityCandidates(GRAVITY_CANDIDATES_RADIUS_2, 16);
 const GRAVITY_BUCKET_OFFSETS_RADIUS_2_32 = __rotateGravityCandidates(GRAVITY_CANDIDATES_RADIUS_2_32, 32);
+const GRAVITY_BUCKET_OFFSETS_FAMILY_32 =
+  __rotateFamilyGravityCandidates(GRAVITY_CANDIDATES_FAMILY_32, 32);
 
 function getGravityMode() {
   return gravityExperimentMode;
 }
 
+function getGravityStrength() {
+  return gravityState.strength;
+}
+
 function getGravityBucketIndex() {
-  const bucketCount = gravityBucketCount > 0 ? gravityBucketCount : 16;
-  const bucketIdx = gravityBucketIndex % bucketCount;
-  return bucketIdx < 0 ? bucketIdx + bucketCount : bucketIdx;
+  return gravityState.bucket;
+}
+
+/*
+ * Per-frame gravity cache. Resolved once at the start of each frame by
+ * syncFrameGravity() so that per-pixel code never touches mode strings.
+ */
+var __frameGravityOffsets = null;
+var __frameGravityChanceScale = 1;
+var __frameGravityIsBaseline = true;
+
+function syncFrameGravity() {
+  const mode = gravityExperimentMode;
+  if (mode === "default" || mode === "baseline") {
+    __frameGravityOffsets = null;
+    __frameGravityChanceScale = 1;
+    __frameGravityIsBaseline = true;
+    return;
+  }
+  __frameGravityIsBaseline = false;
+  __frameGravityChanceScale = Math.max(0, Math.min(1, gravityState.strength));
+  const bucketIdx = gravityState.bucket;
+  if (mode === "bucket16")
+    __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_16[bucketIdx];
+  else if (mode === "bucket32")
+    __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_32[bucketIdx];
+  else if (mode === "radius2")
+    __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx];
+  else if (mode === "radius2-32")
+    __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2_32[bucketIdx];
+  else if (mode === "family32")
+    __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_FAMILY_32[bucketIdx];
+  else
+    __frameGravityOffsets = null;
+}
+
+function scaleGravityChance(chance) {
+  if (__frameGravityIsBaseline) return chance;
+  return Math.max(0, Math.min(100, Math.round(chance * __frameGravityChanceScale)));
 }
 
 function __inBounds(x, y) {
@@ -1718,34 +1805,18 @@ function __findExperimentalMove(x, y, i, offsets, targetElem) {
   return -1;
 }
 
-function doExperimentalGravity(x, y, i, targetElem) {
-  const mode = getGravityMode();
-  if (mode === "default") return -1;
-
-  const bucketIdx = getGravityBucketIndex();
-  if (getGravityMode() === "bucket16")
-    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_16[bucketIdx], targetElem);
-  if (getGravityMode() === "bucket32")
-    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_32[bucketIdx], targetElem);
-  if (getGravityMode() === "radius2")
-    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx], targetElem);
-  if (getGravityMode() === "radius2-32")
-    return __findExperimentalMove(x, y, i, GRAVITY_BUCKET_OFFSETS_RADIUS_2_32[bucketIdx], targetElem);
-
-  return -1;
-}
-
 function doGravity(x, y, i, fallAdjacent, chance) {
-  if (random() >= chance) return false;
+  if (random() >= scaleGravityChance(chance)) return false;
 
-  const mode = getGravityMode();
-  const experimentalMove = doExperimentalGravity(x, y, i, BACKGROUND);
-  if (experimentalMove !== -1) {
-    gameImagedata32[experimentalMove] = gameImagedata32[i];
-    gameImagedata32[i] = BACKGROUND;
-    return true;
+  if (__frameGravityOffsets !== null) {
+    const experimentalMove = __findExperimentalMove(x, y, i, __frameGravityOffsets, BACKGROUND);
+    if (experimentalMove !== -1) {
+      gameImagedata32[experimentalMove] = gameImagedata32[i];
+      gameImagedata32[i] = BACKGROUND;
+      return true;
+    }
+    return false;
   }
-  if (mode !== "default") return false;
 
   if (y === MAX_Y_IDX) {
     gameImagedata32[i] = BACKGROUND;
@@ -1777,23 +1848,19 @@ function doGravity(x, y, i, fallAdjacent, chance) {
  */
 function doRise(x, y, i, riseChance, adjacentChance) {
   var newI = -1;
-  const mode = getGravityMode();
-  if (mode !== "default" && random() < riseChance) {
-    const bucketIdx = getGravityBucketIndex();
-    var offsets = GRAVITY_BUCKET_OFFSETS_16[bucketIdx];
-    if (mode === "bucket32") offsets = GRAVITY_BUCKET_OFFSETS_32[bucketIdx];
-    else if (mode === "radius2") offsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2[bucketIdx];
-    else if (mode === "radius2-32") offsets = GRAVITY_BUCKET_OFFSETS_RADIUS_2_32[bucketIdx];
+  const scaledRiseChance = scaleGravityChance(riseChance);
+  const scaledAdjacentChance = scaleGravityChance(adjacentChance);
+  if (__frameGravityOffsets !== null && random() < scaledRiseChance) {
     var inverseOffsets = [];
     var iter;
-    for (iter = 0; iter < offsets.length; iter++) {
-      const offset = offsets[iter];
+    for (iter = 0; iter < __frameGravityOffsets.length; iter++) {
+      const offset = __frameGravityOffsets[iter];
       inverseOffsets.push([-offset[0], -offset[1]]);
     }
     newI = __findExperimentalMove(x, y, i, inverseOffsets, BACKGROUND);
   }
 
-  if (random() < riseChance) {
+  if (random() < scaledRiseChance) {
     if (y === 0) {
       gameImagedata32[i] = BACKGROUND;
       return true;
@@ -1802,7 +1869,7 @@ function doRise(x, y, i, riseChance, adjacentChance) {
     }
   }
 
-  if (newI === -1 && random() < adjacentChance)
+  if (newI === -1 && random() < scaledAdjacentChance)
     newI = adjacent(x, i, BACKGROUND);
 
   if (newI !== -1) {
@@ -1816,7 +1883,7 @@ function doRise(x, y, i, riseChance, adjacentChance) {
 
 /* Sink the current solid element if it is on top of heavierThan */
 function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
-  if (random() >= chance) return false;
+  if (random() >= scaleGravityChance(chance)) return false;
 
   if (y === MAX_Y_IDX) return false;
 
@@ -1835,9 +1902,9 @@ function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
 function doDensityLiquid(x, y, i, heavierThan, sinkChance, equalizeChance) {
   var newI = -1;
 
-  if (random() < sinkChance) newI = belowAdjacent(x, y, i, heavierThan);
+  if (random() < scaleGravityChance(sinkChance)) newI = belowAdjacent(x, y, i, heavierThan);
 
-  if (newI === -1 && random() < equalizeChance)
+  if (newI === -1 && random() < scaleGravityChance(equalizeChance))
     newI = adjacent(x, i, heavierThan);
 
   if (newI === -1) return false;

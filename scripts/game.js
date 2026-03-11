@@ -62,20 +62,236 @@ const refreshTimes = [];
 var gravityExperimentMode = "default";
 var gravityBucketCount = 16;
 var gravityBucketIndex = 0;
+var gravityStrength = 1;
+const gravityState = {
+  strategy: "baseline",
+  bucket: 0,
+  family: 0,
+  strength: 1
+};
+const TILT_BUCKET_VECTORS_32 = Object.freeze([
+  [0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [4, 3], [4, 2], [4, 1],
+  [4, 0], [4, -1], [4, -2], [4, -3], [4, -4], [3, -4], [2, -4], [1, -4],
+  [0, -4], [-1, -4], [-2, -4], [-3, -4], [-4, -4], [-4, -3], [-4, -2], [-4, -1],
+  [-4, 0], [-4, 1], [-4, 2], [-4, 3], [-4, 4], [-3, 4], [-2, 4], [-1, 4]
+]);
+const FAMILY_DIRECTION_VECTORS = Object.freeze([
+  [0, 1],
+  [1, 1],
+  [1, 0],
+  [1, -1],
+  [0, -1],
+  [-1, -1],
+  [-1, 0],
+  [-1, 1]
+]);
+const traversalFamilyDescriptors = [];
+const traversalBucketDescriptors = [];
 
 window.setGravityExperimentMode = function (mode, bucketIdx) {
   gravityExperimentMode = mode || "default";
-  if (gravityExperimentMode === "bucket32" || gravityExperimentMode === "radius2-32")
+  if (
+    gravityExperimentMode === "bucket32" ||
+    gravityExperimentMode === "radius2-32" ||
+    gravityExperimentMode === "family32" ||
+    gravityExperimentMode === "scanline32"
+  )
     gravityBucketCount = 32;
   else gravityBucketCount = 16;
   if (typeof bucketIdx === "number") gravityBucketIndex = bucketIdx;
+  if (gravityExperimentMode === "default") gravityState.strategy = "baseline";
+  else if (gravityExperimentMode === "family32") gravityState.strategy = "family32";
+  else if (gravityExperimentMode === "scanline32") gravityState.strategy = "family32";
+  else gravityState.strategy = "baseline";
+  syncGravityState();
+  syncTiltModeCheckbox();
 };
 
 window.setGravityBucketIndex = function (bucketIdx) {
   gravityBucketIndex = bucketIdx;
+  syncGravityState();
+};
+
+window.setTiltBenchmarkState = function (state) {
+  if (state && state.strategy) {
+    gravityState.strategy = state.strategy === "scanline32" ? "family32" : state.strategy;
+    gravityExperimentMode = state.strategy;
+    gravityBucketCount =
+      state.strategy === "scanline32" || state.strategy === "family32" ? 32 : 16;
+  }
+  if (state && typeof state.bucket === "number") gravityBucketIndex = state.bucket;
+  if (state && typeof state.strength === "number") gravityStrength = Math.max(0, Math.min(1, state.strength));
+  syncGravityState();
+  syncTiltModeCheckbox();
+};
+
+window.setTiltGravityVector = function (x, y) {
+  projectTiltVector(x, y);
+};
+
+window.setTiltDeviceGravity = function (x, y, z) {
+  projectTiltVector(x, y, z);
+};
+
+window.getTiltBenchmarkState = function () {
+  return {
+    strategy: gravityState.strategy,
+    bucket: gravityState.bucket,
+    strength: gravityState.strength
+  };
+};
+
+window.loadBenchmarkScene = function (name) {
+  clearGameCanvas();
+
+  if (name === "sand") {
+    fillBenchmarkBand(SAND, 0.08, 0.48);
+  } else if (name === "mixed") {
+    fillBenchmarkBand(SAND, 0.08, 0.28);
+    fillBenchmarkBand(WATER, 0.28, 0.48);
+    fillBenchmarkBand(SOIL, 0.48, 0.58);
+  } else if (name === "gas") {
+    fillBenchmarkBand(STEAM, 0.08, 0.33);
+    fillBenchmarkBand(CLOUD, 0.33, 0.58);
+    fillBenchmarkBand(METHANE, 0.58, 0.78);
+  }
 };
 
 /* ========================================================================= */
+
+function syncGravityState() {
+  const bucketCount = gravityBucketCount > 0 ? gravityBucketCount : 16;
+  var bucket = gravityBucketIndex % bucketCount;
+  if (bucket < 0) bucket += bucketCount;
+
+  gravityState.bucket = bucket;
+  gravityState.family = Math.floor((bucket * 8) / bucketCount) & 7;
+  gravityState.strength = gravityStrength;
+}
+
+function syncTiltModeCheckbox() {
+  const tiltModeCheckbox = document.getElementById("tiltModeCheckbox");
+  if (!tiltModeCheckbox) return;
+  tiltModeCheckbox.checked = gravityState.strategy === "family32";
+}
+
+function projectTiltVector(x, y, z) {
+  const screenX = typeof x === "number" ? x : 0;
+  const screenY = typeof y === "number" ? y : 0;
+  const screenZ = typeof z === "number" ? z : 0;
+  const magnitude = Math.sqrt(screenX * screenX + screenY * screenY);
+  const fullMagnitude = Math.sqrt(screenX * screenX + screenY * screenY + screenZ * screenZ);
+  const normalizedMagnitude = fullMagnitude > 0 ? magnitude / fullMagnitude : magnitude;
+  const strength = Math.max(0, Math.min(1, normalizedMagnitude));
+  const deadband = 0.08;
+
+  gravityStrength = strength <= deadband ? 0 : (strength - deadband) / (1 - deadband);
+  if (gravityStrength > 0) {
+    const angle = Math.atan2(screenX, screenY);
+    const rawBucket = Math.round((angle / TWO_PI) * gravityBucketCount);
+    gravityBucketIndex = rawBucket;
+  }
+  syncGravityState();
+}
+
+function fillBenchmarkBand(elem, startRatio, endRatio) {
+  const startX = Math.floor(width * startRatio);
+  const endX = Math.floor(width * endRatio);
+  const bandHeight = Math.max(8, Math.floor(height * 0.08));
+  var y, x;
+  for (y = 0; y < bandHeight; y++) {
+    const rowOffset = y * width;
+    for (x = startX; x < endX; x++) {
+      if (random() < 85) gameImagedata32[rowOffset + x] = elem;
+    }
+  }
+}
+
+function buildTraversalDescriptor(dirX, dirY) {
+  const tangentX = -dirY;
+  const tangentY = dirX;
+  const starts = [];
+  const visitedStarts = {};
+  var x, y;
+
+  function maybeAddStart(startX, startY) {
+    if (startX < 0 || startX > MAX_X_IDX || startY < 0 || startY > MAX_Y_IDX) return;
+    const prevX = startX - tangentX;
+    const prevY = startY - tangentY;
+    if (prevX >= 0 && prevX <= MAX_X_IDX && prevY >= 0 && prevY <= MAX_Y_IDX) return;
+
+    const key = startX + "," + startY;
+    if (key in visitedStarts) return;
+    visitedStarts[key] = true;
+    starts.push([startX, startY]);
+  }
+
+  for (x = 0; x < width; x++) {
+    maybeAddStart(x, 0);
+    maybeAddStart(x, MAX_Y_IDX);
+  }
+  for (y = 0; y < height; y++) {
+    maybeAddStart(0, y);
+    maybeAddStart(MAX_X_IDX, y);
+  }
+
+  starts.sort(function (a, b) {
+    return b[0] * dirX + b[1] * dirY - (a[0] * dirX + a[1] * dirY);
+  });
+
+  const descriptor = [];
+  var lineIdx;
+  for (lineIdx = 0; lineIdx < starts.length; lineIdx++) {
+    const start = starts[lineIdx];
+    var lineX = start[0];
+    var lineY = start[1];
+    var length = 0;
+    while (lineX >= 0 && lineX <= MAX_X_IDX && lineY >= 0 && lineY <= MAX_Y_IDX) {
+      length++;
+      lineX += tangentX;
+      lineY += tangentY;
+    }
+
+    if (length === 0) continue;
+
+    const reverse = (lineIdx & 1) === 1;
+    var startX = start[0];
+    var startY = start[1];
+    var stepX = tangentX;
+    var stepY = tangentY;
+    if (reverse) {
+      startX = start[0] + tangentX * (length - 1);
+      startY = start[1] + tangentY * (length - 1);
+      stepX = -tangentX;
+      stepY = -tangentY;
+    }
+
+    descriptor.push({
+      startX: startX,
+      startY: startY,
+      stepX: stepX,
+      stepY: stepY,
+      length: length
+    });
+  }
+
+  return descriptor;
+}
+
+function initTraversalDescriptors() {
+  var i;
+  traversalFamilyDescriptors.length = 0;
+  for (i = 0; i < FAMILY_DIRECTION_VECTORS.length; i++) {
+    const dir = FAMILY_DIRECTION_VECTORS[i];
+    traversalFamilyDescriptors.push(buildTraversalDescriptor(dir[0], dir[1]));
+  }
+
+  traversalBucketDescriptors.length = 0;
+  for (i = 0; i < 32; i++) {
+    const dir = TILT_BUCKET_VECTORS_32[i];
+    traversalBucketDescriptors.push(buildTraversalDescriptor(dir[0], dir[1]));
+  }
+}
 
 function init() {
 
@@ -89,6 +305,9 @@ function init() {
   initMenu();
   if (typeof initTooltips === "function") initTooltips();
   initSoftBody();
+  initTraversalDescriptors();
+  syncGravityState();
+  syncTiltModeCheckbox();
 
   /* Initialize imagedata */
   const len = gameImagedata32.length;
@@ -111,8 +330,16 @@ function setFPS(fps) {
   else drawFPSLabel(0);
 }
 function updateGame() {
+  syncFrameGravity();
   updateSpigots();
   updateParticles();
+
+  if (gravityState.strategy === "family32") {
+    updateGameFamily32();
+    perfRecordFrame();
+    frameDebt--;
+    return;
+  }
 
   var x, y;
   var i = MAX_IDX;
@@ -164,6 +391,116 @@ function updateGame() {
 
   perfRecordFrame();
   frameDebt--;
+}
+
+function updateGameFamily32() {
+  const family = gravityState.family;
+  if (family === 2) {
+    updateGameColumns(MAX_X_IDX, -1, -1, MAX_X_IDX & 1);
+    return;
+  }
+  if (family === 6) {
+    updateGameColumns(0, width, 1, 0);
+    return;
+  }
+  if (family === 4 || family === 3 || family === 5) {
+    updateGameRows(0, height, 1, 0);
+    return;
+  }
+  updateGameRows(MAX_Y_IDX, -1, -1, MAX_Y_IDX & 1);
+}
+
+function updateGameRows(yStart, yStop, yStep, direction) {
+  var x, y;
+  var i;
+
+  for (y = yStart; y !== yStop; y += yStep) {
+    const Y = y;
+    if ((Y & 1) === direction) {
+      i = MAX_X_IDX + Y * width;
+      for (x = MAX_X_IDX; x !== -1; x--) {
+        const elem = gameImagedata32[i];
+        if (elem === BACKGROUND) {
+          i--;
+          continue;
+        }
+        const elem_idx =
+          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+        elementActions[elem_idx](x, Y, i);
+        i--;
+      }
+    } else {
+      i = Y * width;
+      for (x = 0; x !== width; x++) {
+        const elem = gameImagedata32[i];
+        if (elem === BACKGROUND) {
+          i++;
+          continue;
+        }
+        const elem_idx =
+          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+        elementActions[elem_idx](x, Y, i);
+        i++;
+      }
+    }
+  }
+}
+
+function updateGameColumns(xStart, xStop, xStep, direction) {
+  var x, y;
+  var i = xStart;
+
+  for (x = xStart; x !== xStop; x += xStep) {
+    const X = x;
+    if ((X & 1) === direction) {
+      i = x + MAX_Y_IDX * width;
+      for (y = MAX_Y_IDX; y !== -1; y--) {
+        const elem = gameImagedata32[i];
+        if (elem !== BACKGROUND) {
+          const elem_idx =
+            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+          elementActions[elem_idx](X, y, i);
+        }
+        i -= width;
+      }
+    } else {
+      i = x;
+      for (y = 0; y !== height; y++) {
+        const elem = gameImagedata32[i];
+        if (elem !== BACKGROUND) {
+          const elem_idx =
+            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+          elementActions[elem_idx](X, y, i);
+        }
+        i += width;
+      }
+    }
+  }
+}
+
+function updateGameWithDescriptor(descriptor) {
+  if (!descriptor) return;
+
+  var lineIdx;
+  for (lineIdx = 0; lineIdx < descriptor.length; lineIdx++) {
+    const line = descriptor[lineIdx];
+    var x = line.startX;
+    var y = line.startY;
+    var i = x + y * width;
+    const stepI = line.stepX + line.stepY * width;
+    var iter;
+    for (iter = 0; iter < line.length; iter++) {
+      const elem = gameImagedata32[i];
+      if (elem !== BACKGROUND) {
+        const elem_idx =
+          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+        elementActions[elem_idx](x, y, i);
+      }
+      x += line.stepX;
+      y += line.stepY;
+      i += stepI;
+    }
+  }
 }
 
 function draw() {

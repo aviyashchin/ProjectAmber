@@ -1,9 +1,15 @@
 # Tilt Gravity Benchmark Notes
 
+## Tilt Debug
+
+- Use the visible `Tilt Debug` card instead of the console when possible.
+- Turn `Tilt` on, use the `Bucket slider`, and adjust the `Strength slider`.
+- Use the scene buttons to fill the full canvas consistently before comparing behavior.
+
 ## Sand-heavy scene
 
 - Fill the upper half of the world with `SAND`.
-- Compare `default`, `bucket16`, `bucket32`, `radius2`, and `radius2-32`.
+- Compare `baseline` and `family32`.
 - Watch settling speed, diagonal slumping, and FPS.
 
 ## Mixed water scene
@@ -26,11 +32,11 @@
 
 ## Manual console hooks
 
-- `setGravityExperimentMode("default")`
-- `setGravityExperimentMode("bucket16", 0)`
-- `setGravityExperimentMode("bucket16", 4)`
-- `setGravityExperimentMode("bucket32", 8)`
-- `setGravityExperimentMode("radius2", 0)`
-- `setGravityExperimentMode("radius2", 4)`
-- `setGravityExperimentMode("radius2-32", 8)`
-- `setGravityBucketIndex(8)`
+- `setTiltBenchmarkState({ strategy: "baseline", bucket: 0, strength: 1 })`
+- `setTiltBenchmarkState({ strategy: "family32", bucket: 8, strength: 1 })`
+- `setTiltBenchmarkState({ strategy: "family32", bucket: 12, strength: 1 })`
+- `setTiltBenchmarkState({ strategy: "family32", bucket: 8, strength: 0.1 })`
+- `setTiltGravityVector(0, 1)` for straight-down gravity
+- `setTiltGravityVector(1, 0)` for rightward gravity
+- `setTiltDeviceGravity(0, 0, 1)` for a flat device that should feel almost still
+- `setTiltDeviceGravity(0.7, 0.7, 0)` for a strongly tilted device

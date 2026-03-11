@@ -80,6 +80,35 @@
         <input id="clearButton" class="optionButton" type="button" value="Clear">
       </div>
     </div>
+    <div id="tiltDebugPanel" class="infoCard optionsCol tiltDebugCard">
+      <h2 class="infoHeading">Tilt Debug</h2>
+      <div class="tiltDebugControls">
+        <label for="tiltModeCheckbox">Tilt</label>
+        <input type="checkbox" id="tiltModeCheckbox">
+      </div>
+      <div class="tiltDebugControls tiltDebugRow">
+        <label for="tiltBucketSlider">Bucket</label>
+        <input type="range" id="tiltBucketSlider" min="0" max="31" value="0">
+        <span id="tiltBucketValue">0</span>
+      </div>
+      <div class="tiltDebugControls tiltDebugRow">
+        <label for="tiltStrengthSlider">Strength</label>
+        <input type="range" id="tiltStrengthSlider" min="0" max="100" value="100">
+        <span id="tiltStrengthValue">1.00</span>
+      </div>
+      <div class="tiltDebugButtonGrid tiltDebugButtons">
+        <input id="tiltDirectionDownButton" class="optionButton" type="button" value="Down">
+        <input id="tiltDirectionDownRightButton" class="optionButton" type="button" value="Down-Right">
+        <input id="tiltDirectionRightButton" class="optionButton" type="button" value="Right">
+        <input id="tiltDirectionUpRightButton" class="optionButton" type="button" value="Up-Right">
+      </div>
+      <div class="tiltDebugButtonGrid tiltDebugButtons">
+        <input id="tiltSceneSandButton" class="optionButton" type="button" value="Sand">
+        <input id="tiltSceneMixedButton" class="optionButton" type="button" value="Mixed">
+        <input id="tiltSceneGasButton" class="optionButton" type="button" value="Gas">
+        <input id="tiltSceneClearButton" class="optionButton" type="button" value="Clear">
+      </div>
+    </div>
     <div id="fps-counter">
     </div>
   </div>

@@ -310,22 +310,76 @@ function testCloudsThinWhenTheyRain() {
 function testTiltGravityExperimentSwitchExists() {
   const gameSource = read("scripts/game.js");
   const elementsSource = read("scripts/elements.js");
+  const menuSource = read("scripts/menu.js");
+  const indexSource = read("index.html");
+  const stylesSource = read("styles.css");
 
   assert(
     gameSource.includes("var gravityExperimentMode = \"default\";") &&
     gameSource.includes("var gravityBucketCount = 16;") &&
-    gameSource.includes("window.setGravityExperimentMode = function"),
-    "game.js should expose a hidden tilt-gravity experiment switch"
+    gameSource.includes("const gravityState = {") &&
+    gameSource.includes("const TILT_BUCKET_VECTORS_32 = Object.freeze([") &&
+    gameSource.includes("window.setGravityExperimentMode = function") &&
+    gameSource.includes("window.setTiltBenchmarkState = function") &&
+    gameSource.includes("window.setTiltGravityVector = function") &&
+    gameSource.includes("window.setTiltDeviceGravity = function") &&
+    gameSource.includes("function projectTiltVector("),
+    "game.js should expose tilt-gravity state and mapping helpers"
   );
 
   assert(
     elementsSource.includes("function getGravityMode()") &&
+    elementsSource.includes("function getGravityStrength()") &&
     elementsSource.includes("return gravityExperimentMode;"),
-    "elements.js should read the active gravity experiment mode from game.js"
+    "elements.js should read the active gravity state from game.js"
+  );
+
+  assert(
+    indexSource.includes('id="tiltModeCheckbox"') &&
+    indexSource.includes('id="tiltDebugPanel"') &&
+    indexSource.includes('id="tiltBucketSlider"') &&
+    indexSource.includes('id="tiltStrengthSlider"') &&
+    indexSource.includes('id="tiltBucketValue"') &&
+    indexSource.includes('id="tiltStrengthValue"') &&
+    indexSource.includes('id="tiltSceneSandButton"') &&
+    indexSource.includes('id="tiltSceneMixedButton"') &&
+    indexSource.includes('id="tiltSceneGasButton"') &&
+    indexSource.includes('id="tiltSceneClearButton"') &&
+    indexSource.includes('id="tiltDirectionDownButton"') &&
+    indexSource.includes('id="tiltDirectionDownRightButton"') &&
+    indexSource.includes('id="tiltDirectionRightButton"') &&
+    menuSource.includes("const tiltModeCheckbox = document.getElementById(\"tiltModeCheckbox\")"),
+    "the UI should expose a visible tilt debug panel"
+  );
+
+  assert(
+    menuSource.includes("const tiltBucketSlider = document.getElementById(\"tiltBucketSlider\")") &&
+    menuSource.includes("const tiltStrengthSlider = document.getElementById(\"tiltStrengthSlider\")") &&
+    menuSource.includes("const tiltBucketValue = document.getElementById(\"tiltBucketValue\")") &&
+    menuSource.includes("const tiltStrengthValue = document.getElementById(\"tiltStrengthValue\")") &&
+    menuSource.includes("document.getElementById(\"tiltSceneSandButton\")") &&
+    menuSource.includes("document.getElementById(\"tiltDirectionRightButton\")"),
+    "menu.js should wire the tilt debug controls"
+  );
+
+  assert(
+    stylesSource.includes(".tiltDebugCard") &&
+    stylesSource.includes(".tiltDebugControls") &&
+    stylesSource.includes(".tiltDebugButtons"),
+    "styles.css should define the tilt debug panel layout"
+  );
+
+  assert(
+    stylesSource.includes("#fps-counter {") &&
+    stylesSource.includes("top: 1px;") &&
+    stylesSource.includes("right: 1px;") &&
+    !stylesSource.includes("bottom: 1px;"),
+    "the FPS counter should live in the top-right corner"
   );
 }
 
 function testTiltGravityCandidatesStayLocal() {
+  const gameSource = read("scripts/game.js");
   const elementsSource = read("scripts/elements.js");
 
   assert(
@@ -337,25 +391,48 @@ function testTiltGravityCandidatesStayLocal() {
   );
 
   assert(
-    elementsSource.includes("function doExperimentalGravity(") &&
-    elementsSource.includes("getGravityMode() === \"bucket16\"") &&
-    elementsSource.includes("getGravityMode() === \"bucket32\"") &&
-    elementsSource.includes("getGravityMode() === \"radius2\"") &&
-    elementsSource.includes("getGravityMode() === \"radius2-32\""),
-    "elements.js should route all gravity experiments through a small helper"
+    elementsSource.includes("function syncFrameGravity()") &&
+    elementsSource.includes("__frameGravityOffsets") &&
+    elementsSource.includes("GRAVITY_BUCKET_OFFSETS_FAMILY_32[bucketIdx]") &&
+    !elementsSource.includes("getGravityMode() === \"scanline32\""),
+    "elements.js should resolve gravity offsets once per frame via syncFrameGravity"
   );
 
   const gravityMatch = elementsSource.match(/function doGravity\(x, y, i, fallAdjacent, chance\) \{([\s\S]*?)\n\}/);
   assert(gravityMatch, "elements.js should contain doGravity body");
   assert(
-    gravityMatch[1].includes("if (mode !== \"default\") return false;"),
-    "doGravity should not fall back to the old downward logic in experimental modes"
+    gravityMatch[1].includes("__frameGravityOffsets !== null"),
+    "doGravity should use the per-frame cached offsets instead of per-pixel mode checks"
+  );
+
+  assert(
+    gameSource.includes("const dir = TILT_BUCKET_VECTORS_32[i];") &&
+    !gameSource.includes("const dir = GRAVITY_BUCKET_OFFSETS_32[i][0];"),
+    "scanline traversal should use explicit 32-angle vectors instead of reusing old local offset tables"
   );
 
   assert(
     !elementsSource.includes("for (dy = -2; dy <= 2; dy++)") &&
     !elementsSource.includes("for (dx = -2; dx <= 2; dx++)"),
     "tilt gravity candidates should avoid scanning full local neighborhoods"
+  );
+
+  assert(
+    gameSource.includes("gravityState.strategy === \"family32\"") &&
+    !gameSource.includes("gravityState.strategy === \"scanline32\""),
+    "family32 should be the only real tilt traversal strategy in the main loop"
+  );
+
+  assert(
+    elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_FAMILY_32 =") &&
+    elementsSource.includes("GRAVITY_BUCKET_OFFSETS_FAMILY_32[bucketIdx]"),
+    "family32 should use its own stronger bucket offsets so nearby buckets diverge more clearly"
+  );
+
+  assert(
+    gameSource.includes("updateGameFamily32()") &&
+    !gameSource.includes("updateGameWithDescriptor(traversalFamilyDescriptors[gravityState.family]);"),
+    "family32 should use a dedicated hot loop instead of the generic descriptor walker"
   );
 }
 
@@ -367,9 +444,12 @@ function testTiltGravityBenchmarkNotesExist() {
     benchmarkNotes.includes("Mixed water scene") &&
     benchmarkNotes.includes("Gas-heavy scene") &&
     benchmarkNotes.includes("Bucket boundary stability") &&
-    benchmarkNotes.includes("bucket32") &&
-    benchmarkNotes.includes("radius2-32"),
-    "tilt gravity benchmark notes should define the comparison scenes"
+    benchmarkNotes.includes("family32") &&
+    !benchmarkNotes.includes("scanline32") &&
+    benchmarkNotes.includes("Tilt Debug") &&
+    benchmarkNotes.includes("Bucket slider") &&
+    benchmarkNotes.includes("Strength slider"),
+    "tilt gravity benchmark notes should describe the family32-first comparison scenes"
   );
 }
 

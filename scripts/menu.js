@@ -271,6 +271,90 @@ function initMenu() {
     document.body.classList.toggle("borderless", !borderCheckbox.checked);
   });
 
+  const tiltModeCheckbox = document.getElementById("tiltModeCheckbox");
+  const tiltBucketSlider = document.getElementById("tiltBucketSlider");
+  const tiltStrengthSlider = document.getElementById("tiltStrengthSlider");
+  const tiltBucketValue = document.getElementById("tiltBucketValue");
+  const tiltStrengthValue = document.getElementById("tiltStrengthValue");
+  const tiltSceneSandButton = document.getElementById("tiltSceneSandButton");
+  const tiltSceneMixedButton = document.getElementById("tiltSceneMixedButton");
+  const tiltSceneGasButton = document.getElementById("tiltSceneGasButton");
+  const tiltSceneClearButton = document.getElementById("tiltSceneClearButton");
+  const tiltDirectionDownButton = document.getElementById("tiltDirectionDownButton");
+  const tiltDirectionDownRightButton = document.getElementById("tiltDirectionDownRightButton");
+  const tiltDirectionRightButton = document.getElementById("tiltDirectionRightButton");
+  const tiltDirectionUpRightButton = document.getElementById("tiltDirectionUpRightButton");
+
+  function syncTiltDebugControls() {
+    const tiltState =
+      typeof window.getTiltBenchmarkState === "function"
+        ? window.getTiltBenchmarkState()
+        : { bucket: gravityBucketIndex, strength: 1 };
+    tiltBucketSlider.value = tiltState.bucket;
+    tiltStrengthSlider.value = Math.round(tiltState.strength * 100);
+    tiltBucketValue.innerText = tiltState.bucket.toString(10);
+    tiltStrengthValue.innerText = tiltState.strength.toFixed(2);
+  }
+
+  tiltModeCheckbox.checked =
+    typeof gravityState !== "undefined" && gravityState.strategy === "family32";
+  tiltBucketSlider.min = 0;
+  tiltBucketSlider.max = 31;
+  tiltBucketSlider.value = gravityBucketIndex.toString(10);
+  tiltStrengthSlider.min = 0;
+  tiltStrengthSlider.max = 100;
+  tiltStrengthSlider.value = "100";
+  tiltModeCheckbox.addEventListener("click", function () {
+    if (tiltModeCheckbox.checked) window.setGravityExperimentMode("family32", gravityBucketIndex);
+    else window.setGravityExperimentMode("default");
+    syncTiltDebugControls();
+  });
+  tiltBucketSlider.addEventListener("input", function () {
+    window.setTiltBenchmarkState({
+      strategy: tiltModeCheckbox.checked ? "family32" : "baseline",
+      bucket: parseInt(tiltBucketSlider.value, 10),
+      strength: parseInt(tiltStrengthSlider.value, 10) / 100
+    });
+    syncTiltDebugControls();
+  });
+  tiltStrengthSlider.addEventListener("input", function () {
+    window.setTiltBenchmarkState({
+      strategy: tiltModeCheckbox.checked ? "family32" : "baseline",
+      bucket: parseInt(tiltBucketSlider.value, 10),
+      strength: parseInt(tiltStrengthSlider.value, 10) / 100
+    });
+    syncTiltDebugControls();
+  });
+  tiltSceneSandButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("sand");
+  });
+  tiltSceneMixedButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("mixed");
+  });
+  tiltSceneGasButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("gas");
+  });
+  tiltSceneClearButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("clear");
+  });
+  tiltDirectionDownButton.addEventListener("click", function () {
+    window.setTiltGravityVector(0, 1);
+    syncTiltDebugControls();
+  });
+  tiltDirectionDownRightButton.addEventListener("click", function () {
+    window.setTiltGravityVector(0.7, 0.7);
+    syncTiltDebugControls();
+  });
+  tiltDirectionRightButton.addEventListener("click", function () {
+    window.setTiltGravityVector(1, 0);
+    syncTiltDebugControls();
+  });
+  tiltDirectionUpRightButton.addEventListener("click", function () {
+    window.setTiltGravityVector(0.7, -0.7);
+    syncTiltDebugControls();
+  });
+  syncTiltDebugControls();
+
   /* speed slider */
   const speedSlider = document.getElementById("speedSlider");
   speedSlider.min = 0;
