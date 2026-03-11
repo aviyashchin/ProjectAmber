@@ -338,7 +338,7 @@ function initMenu() {
   tiltModeCheckbox.addEventListener("click", function () {
     if (tiltModeCheckbox.checked) {
       window.setGravityExperimentMode("family32", gravityBucketIndex);
-      enableTiltMotionInBackground();
+      if (shouldEnableTiltByDefault()) enableTiltMotionInBackground();
     } else window.setGravityExperimentMode("default");
     syncTiltDebugControls();
   });

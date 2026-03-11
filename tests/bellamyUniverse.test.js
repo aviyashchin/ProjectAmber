@@ -369,9 +369,10 @@ function testTiltGravityExperimentSwitchExists() {
     menuSource.includes("const tiltDefaultEnabled = shouldEnableTiltByDefault();") &&
     menuSource.includes("if (tiltDefaultEnabled) {") &&
     menuSource.includes("window.setGravityExperimentMode(\"family32\", gravityBucketIndex);") &&
+    menuSource.includes("if (shouldEnableTiltByDefault()) enableTiltMotionInBackground();") &&
     menuSource.includes("document.getElementById(\"tiltSceneSandButton\")") &&
     menuSource.includes("document.getElementById(\"tiltDirectionRightButton\")"),
-    "menu.js should default tilt on only for likely mobile sensor devices and enable it through the platform seam without blocking the click handler"
+    "menu.js should default tilt on only for likely mobile sensor devices and only enable live motion on those devices without blocking the click handler"
   );
 
   assert(
@@ -440,6 +441,23 @@ function testTiltGravityCandidatesStayLocal() {
     elementsSource.includes("const GRAVITY_BUCKET_OFFSETS_FAMILY_32 =") &&
     elementsSource.includes("__getFamily32BucketConfig(bucketIdx)"),
     "family32 should use its own stronger bucket offsets so nearby buckets diverge more clearly"
+  );
+
+  assert(
+    elementsSource.includes("primaryFlat: __buildFlatOffsets(primaryOffsets, false)") &&
+    elementsSource.includes("inverseFlat: __buildFlatOffsets(primaryOffsets, true)") &&
+    elementsSource.includes("secondaryFlat: __buildFlatOffsets(secondaryOffsets, false)") &&
+    elementsSource.includes("inverseSecondaryFlat: __buildFlatOffsets(secondaryOffsets, true)"),
+    "family32 bucket configs should cache flat offset tables once instead of rebuilding them each frame"
+  );
+
+  assert(
+    elementsSource.includes("__frameGravityFlat = familyConfig.primaryFlat;") &&
+    elementsSource.includes("__frameGravityInverseFlat = familyConfig.inverseFlat;") &&
+    elementsSource.includes("__frameGravityFlatAlt = familyConfig.secondaryFlat;") &&
+    elementsSource.includes("__frameGravityInverseFlatAlt = familyConfig.inverseSecondaryFlat;") &&
+    !elementsSource.includes("if (mode === \"family32\") {\n      const familyConfig = __getFamily32BucketConfig(bucketIdx);\n      __frameGravityFlatAlt = __buildFlatOffsets(familyConfig.secondaryOffsets, false);"),
+    "syncFrameGravity should reuse cached family32 flat tables instead of allocating them every frame"
   );
 
   const familyCandidatesMatch = elementsSource.match(/const GRAVITY_CANDIDATES_FAMILY_32 = \[([\s\S]*?)\n\];/);

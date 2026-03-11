@@ -1798,6 +1798,10 @@ function __getFamily32BucketConfig(bucketIdx) {
   config = {
     primaryOffsets: primaryOffsets,
     secondaryOffsets: secondaryOffsets,
+    primaryFlat: __buildFlatOffsets(primaryOffsets, false),
+    inverseFlat: __buildFlatOffsets(primaryOffsets, true),
+    secondaryFlat: __buildFlatOffsets(secondaryOffsets, false),
+    inverseSecondaryFlat: __buildFlatOffsets(secondaryOffsets, true),
     minorShare: major === 0 ? 0 : Math.round((minor * 8) / major),
     mirrorX: stepX < 0,
     mirrorY: stepY < 0
@@ -1932,6 +1936,15 @@ function syncFrameGravity() {
   else if (mode === "family32") {
     const familyConfig = __getFamily32BucketConfig(bucketIdx);
     __frameGravityOffsets = familyConfig.primaryOffsets;
+    __frameGravityFlat = familyConfig.primaryFlat;
+    __frameGravityInverseFlat = familyConfig.inverseFlat;
+    __frameGravityFlatAlt = familyConfig.secondaryFlat;
+    __frameGravityFlatAlt2 = null;
+    __frameGravityFlatAlt3 = null;
+    __frameGravityInverseFlatAlt = familyConfig.inverseSecondaryFlat;
+    __frameGravityInverseFlatAlt2 = null;
+    __frameGravityInverseFlatAlt3 = null;
+    __frameGravityFlatLen = familyConfig.primaryFlat.length;
     __frameGravityMinorShare = familyConfig.minorShare;
     __frameGravityMirrorX = familyConfig.mirrorX;
     __frameGravityMirrorY = familyConfig.mirrorY;
@@ -1939,27 +1952,7 @@ function syncFrameGravity() {
   else
     __frameGravityOffsets = null;
 
-  if (__frameGravityOffsets !== null) {
-    __frameGravityFlatLen = __frameGravityOffsets.length * 5;
-    __frameGravityFlat = __buildFlatOffsets(__frameGravityOffsets, false);
-    __frameGravityInverseFlat = __buildFlatOffsets(__frameGravityOffsets, true);
-    if (mode === "family32") {
-      const familyConfig = __getFamily32BucketConfig(bucketIdx);
-      __frameGravityFlatAlt = __buildFlatOffsets(familyConfig.secondaryOffsets, false);
-      __frameGravityFlatAlt2 = null;
-      __frameGravityFlatAlt3 = null;
-      __frameGravityInverseFlatAlt = __buildFlatOffsets(familyConfig.secondaryOffsets, true);
-      __frameGravityInverseFlatAlt2 = null;
-      __frameGravityInverseFlatAlt3 = null;
-    } else {
-      __frameGravityFlatAlt = __buildFlatOffsetsAlt(__frameGravityFlat, __frameGravityFlatLen);
-      __frameGravityFlatAlt2 = __buildFlatOffsetsAlt2(__frameGravityFlat, __frameGravityFlatLen);
-      __frameGravityFlatAlt3 = __buildFlatOffsetsAlt3(__frameGravityFlat, __frameGravityFlatLen);
-      __frameGravityInverseFlatAlt = __buildFlatOffsetsAlt(__frameGravityInverseFlat, __frameGravityFlatLen);
-      __frameGravityInverseFlatAlt2 = __buildFlatOffsetsAlt2(__frameGravityInverseFlat, __frameGravityFlatLen);
-      __frameGravityInverseFlatAlt3 = __buildFlatOffsetsAlt3(__frameGravityInverseFlat, __frameGravityFlatLen);
-    }
-  } else {
+  if (__frameGravityOffsets === null) {
     __frameGravityFlat = null;
     __frameGravityFlatAlt = null;
     __frameGravityFlatAlt2 = null;
@@ -1972,6 +1965,16 @@ function syncFrameGravity() {
     __frameGravityMinorShare = 0;
     __frameGravityMirrorX = false;
     __frameGravityMirrorY = false;
+  } else if (mode !== "family32") {
+    __frameGravityFlatLen = __frameGravityOffsets.length * 5;
+    __frameGravityFlat = __buildFlatOffsets(__frameGravityOffsets, false);
+    __frameGravityInverseFlat = __buildFlatOffsets(__frameGravityOffsets, true);
+    __frameGravityFlatAlt = __buildFlatOffsetsAlt(__frameGravityFlat, __frameGravityFlatLen);
+    __frameGravityFlatAlt2 = __buildFlatOffsetsAlt2(__frameGravityFlat, __frameGravityFlatLen);
+    __frameGravityFlatAlt3 = __buildFlatOffsetsAlt3(__frameGravityFlat, __frameGravityFlatLen);
+    __frameGravityInverseFlatAlt = __buildFlatOffsetsAlt(__frameGravityInverseFlat, __frameGravityFlatLen);
+    __frameGravityInverseFlatAlt2 = __buildFlatOffsetsAlt2(__frameGravityInverseFlat, __frameGravityFlatLen);
+    __frameGravityInverseFlatAlt3 = __buildFlatOffsetsAlt3(__frameGravityInverseFlat, __frameGravityFlatLen);
   }
 }
 
