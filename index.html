@@ -21,8 +21,17 @@
 
   <canvas id="mainCanvas">Your browser doesn't support HTML5 canvas.</canvas>
   <div id="menuWrapper">
-    <table id="elementTable">
-    </table>
+    <div id="elementPalette"></div>
+    <div id="infoPanel" class="infoPanel">
+      <div id="elementInfo" class="infoCard">
+        <h2 class="infoHeading">Element Info</h2>
+        <div id="elementInfoName" class="infoName">Sand</div>
+        <div id="elementInfoDesc" class="infoDesc">Falls and piles up.</div>
+      </div>
+      <div id="worldIdeas" class="infoCard">
+        <h2 class="infoHeading">World Ideas</h2>
+      </div>
+    </div>
     <div id="optionsCol1" class="optionsCol">
       <div id="penSizeDiv">
         <label for="pensize">Pen Size</label>
@@ -50,6 +59,13 @@
         <label for="overwriteCheckbox">Overwrite</label>
         <input type="checkbox" id="overwriteCheckbox">
       </div>
+      <div>
+        <label for="borderCheckbox">Border</label>
+        <input type="checkbox" id="borderCheckbox" checked>
+      </div>
+      <div class="optionButtonContainer">
+        <input id="hapticsButton" class="optionButton" type="button" value="Haptics: ON">
+      </div>
       <div id="speedSliderDiv">
         <label for="speedSlider">Speed</label>
         <input type="range" id="speedSlider">
@@ -67,6 +83,35 @@
         <input id="clearButton" class="optionButton" type="button" value="Clear">
       </div>
     </div>
+    <div id="tiltDebugPanel" class="infoCard optionsCol tiltDebugCard">
+      <h2 class="infoHeading">Tilt Debug</h2>
+      <div class="tiltDebugControls">
+        <label for="tiltModeCheckbox">Tilt</label>
+        <input type="checkbox" id="tiltModeCheckbox">
+      </div>
+      <div class="tiltDebugControls tiltDebugRow">
+        <label for="tiltBucketSlider">Bucket</label>
+        <input type="range" id="tiltBucketSlider" min="0" max="31" value="0">
+        <span id="tiltBucketValue">0</span>
+      </div>
+      <div class="tiltDebugControls tiltDebugRow">
+        <label for="tiltStrengthSlider">Strength</label>
+        <input type="range" id="tiltStrengthSlider" min="0" max="100" value="100">
+        <span id="tiltStrengthValue">1.00</span>
+      </div>
+      <div class="tiltDebugButtonGrid tiltDebugButtons">
+        <input id="tiltDirectionDownButton" class="optionButton" type="button" value="Down">
+        <input id="tiltDirectionDownRightButton" class="optionButton" type="button" value="Down-Right">
+        <input id="tiltDirectionRightButton" class="optionButton" type="button" value="Right">
+        <input id="tiltDirectionUpRightButton" class="optionButton" type="button" value="Up-Right">
+      </div>
+      <div class="tiltDebugButtonGrid tiltDebugButtons">
+        <input id="tiltSceneSandButton" class="optionButton" type="button" value="Sand">
+        <input id="tiltSceneMixedButton" class="optionButton" type="button" value="Mixed">
+        <input id="tiltSceneGasButton" class="optionButton" type="button" value="Gas">
+        <input id="tiltSceneClearButton" class="optionButton" type="button" value="Clear">
+      </div>
+    </div>
     <div id="fps-counter">
     </div>
   </div>
@@ -75,11 +120,13 @@
 <script type="text/javascript" src="scripts/third_party/matter.min.js"></script>
 <script type="text/javascript" src="scripts/util.js"></script>
 <script type="text/javascript" src="scripts/canvasConfig.js"></script>
+<script type="text/javascript" src="scripts/platform.js"></script>
 <script type="text/javascript" src="scripts/cursor.js"></script>
 <script type="text/javascript" src="scripts/particles.js"></script>
 <script type="text/javascript" src="scripts/elements.js"></script>
 <script type="text/javascript" src="scripts/spigots.js"></script>
 <script type="text/javascript" src="scripts/menu.js"></script>
+<script type="text/javascript" src="scripts/tooltips.js"></script>
 <script type="text/javascript" src="scripts/softBody.js"></script>
 <script type="text/javascript" src="scripts/zombies.js"></script>
 <script type="text/javascript" src="scripts/game.js"></script>

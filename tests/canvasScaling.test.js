@@ -5,6 +5,14 @@ function getGameJsSource() {
   return fs.readFileSync(path.join(__dirname, "..", "scripts", "game.js"), "utf8");
 }
 
+function getCanvasConfigSource() {
+  return fs.readFileSync(path.join(__dirname, "..", "scripts", "canvasConfig.js"), "utf8");
+}
+
+function getStylesSource() {
+  return fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+}
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -30,6 +38,27 @@ function testDrawHandlesDevicePixelRatioOnOnscreenCanvas() {
   );
 }
 
+function testCanvasSizingUsesLayoutViewport() {
+  const source = getCanvasConfigSource();
+  const styles = getStylesSource();
+
+  assert(
+    source.includes("document.documentElement.clientWidth"),
+    "canvas width should size from document.documentElement.clientWidth"
+  );
+
+  assert(
+    source.includes("document.documentElement.clientHeight"),
+    "canvas height should size from document.documentElement.clientHeight"
+  );
+
+  assert(
+    styles.includes("width: 100%;"),
+    "wrapper should use width: 100% to avoid 100vw scrollbar overhang"
+  );
+}
+
 module.exports = {
-  testDrawHandlesDevicePixelRatioOnOnscreenCanvas
+  testDrawHandlesDevicePixelRatioOnOnscreenCanvas,
+  testCanvasSizingUsesLayoutViewport
 };

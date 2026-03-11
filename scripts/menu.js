@@ -23,22 +23,46 @@ const PEN_SIZES = [2, 4, 8, 16, 32, 64];
 const PEN_SIZE_LABELS = ["1px", "2px", "4px", "8px", "16px", "32px"];
 const DEFAULT_PEN_IDX = 1;
 
-/* Elements listed in the menu */
-// prettier-ignore
-const elementMenuItems = [
-  WALL, SAND, WATER, PLANT,
-  FIRE, SPOUT, WELL, SALT,
-  OIL, WAX, TORCH, ICE,
-  GUNPOWDER, NAPALM, NITRO, C4,
-  LAVA, CRYO, FUSE, MYSTERY,
-  CONCRETE, METHANE, SOIL, ACID,
-  THERMITE, BACKGROUND, ZOMBIE,
+const elementMenuGroups = [
+  {
+    label: "Earth",
+    items: [WALL, SAND, SOIL, CONCRETE]
+  },
+  {
+    label: "Water & Sky",
+    items: [WATER, RAIN, CLOUD, ICE, SPOUT, WELL]
+  },
+  {
+    label: "Heat & Fire",
+    items: [SUN, ANTI_GRAVITY, FIRE, TORCH, LAVA, CRYO]
+  },
+  {
+    label: "Discovery",
+    items: [BLACK_HOLE, MYSTERY]
+  },
+  {
+    label: "Life",
+    items: [PLANT, ZOMBIE]
+  },
+  {
+    label: "Advanced",
+    items: [
+      SALT, OIL, WAX, GUNPOWDER,
+      NAPALM, NITRO, C4, FUSE,
+      METHANE, ACID, THERMITE,
+      BACKGROUND
+    ]
+  }
 ];
 
 const menuNames = {};
 menuNames[WALL] = "WALL";
 menuNames[SAND] = "SAND";
 menuNames[WATER] = "WATER";
+menuNames[RAIN] = "RAIN";
+menuNames[CLOUD] = "CLOUD";
+menuNames[SUN] = "SUN";
+menuNames[ANTI_GRAVITY] = "ANTI-G";
 menuNames[PLANT] = "PLANT";
 menuNames[FIRE] = "FIRE";
 menuNames[SALT] = "SALT";
@@ -58,6 +82,7 @@ menuNames[ICE] = "ICE";
 menuNames[LAVA] = "LAVA";
 menuNames[METHANE] = "METHANE";
 menuNames[CRYO] = "CRYO";
+menuNames[BLACK_HOLE] = "BLACK HOLE";
 menuNames[MYSTERY] = "???";
 menuNames[SOIL] = "SOIL";
 menuNames[ACID] = "ACID";
@@ -71,6 +96,11 @@ menuNames[ZOMBIE] = "HAND";
  */
 const menuAltColors = {};
 menuAltColors[WATER] = "rgb(0, 130, 255)";
+menuAltColors[RAIN] = "rgb(110, 190, 255)";
+menuAltColors[CLOUD] = "rgb(220, 225, 235)";
+menuAltColors[SUN] = "rgb(255, 210, 80)";
+menuAltColors[ANTI_GRAVITY] = "rgb(170, 255, 180)";
+menuAltColors[BLACK_HOLE] = "rgb(190, 190, 255)";
 menuAltColors[WALL] = "rgb(160, 160, 160)";
 menuAltColors[BACKGROUND] = "rgb(200, 100, 200)";
 menuAltColors[WELL] = "rgb(158, 13, 33)";
@@ -81,30 +111,36 @@ function initMenu() {
   const menu = document.getElementById("menuWrapper");
 
   /* Set up the wrapper div that holds the element selectors */
-  const elementMenu = document.getElementById("elementTable");
-  elementMenu.style.width =
-    "50%"; /* force browser to scrunch the element menu */
-  const numRows = Math.ceil(
-    elementMenuItems.length / ELEMENT_MENU_ELEMENTS_PER_ROW
-  );
-  var elemIdx = 0;
+  const elementPalette = document.getElementById("elementPalette");
   var i, k;
-  for (i = 0; i < numRows; i++) {
-    const row = elementMenu.insertRow(i);
-    for (k = 0; k < ELEMENT_MENU_ELEMENTS_PER_ROW; k++) {
-      if (elemIdx >= elementMenuItems.length) break;
+  for (i = 0; i < elementMenuGroups.length; i++) {
+    const group = elementMenuGroups[i];
+    const groupWrapper = document.createElement("section");
+    groupWrapper.className = "elementGroup";
 
-      const cell = row.insertCell(k);
+    const groupHeading = document.createElement("h2");
+    groupHeading.className = "elementGroupHeading";
+    groupHeading.textContent = group.label;
+    groupWrapper.appendChild(groupHeading);
+
+    const groupGrid = document.createElement("div");
+    groupGrid.className = "elementGroupGrid";
+    groupWrapper.appendChild(groupGrid);
+
+    for (k = 0; k < group.items.length; k++) {
+      const elemType = group.items[k];
       const elemButton = document.createElement("input");
-      cell.appendChild(elemButton);
+      groupGrid.appendChild(elemButton);
 
       elemButton.type = "button";
       elemButton.className = "elementMenuButton";
 
-      const elemType = elementMenuItems[elemIdx];
       if (!(elemType in menuNames))
         throw "element is missing a canonical name: " + elemType;
-      elemButton.value = menuNames[elemType];
+      elemButton.value =
+        typeof getElementDisplayName === "function"
+          ? getElementDisplayName(elemType)
+          : menuNames[elemType];
 
       const elemColorRGBA = elemType;
       elemButton.id = elemColorRGBA;
@@ -128,10 +164,16 @@ function initMenu() {
           .classList.remove("selectedElementMenuButton");
         elemButton.classList.add("selectedElementMenuButton");
         SELECTED_ELEM = parseInt(elemButton.id, 10);
+        if (typeof updateElementInfoPanel === "function") {
+          updateElementInfoPanel(SELECTED_ELEM);
+        }
+        if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+          window.projectAmberPlatform.haptics.light();
+        }
       });
-
-      elemIdx++;
     }
+
+    elementPalette.appendChild(groupWrapper);
   }
   document.getElementById(SELECTED_ELEM.toString()).click();
 
@@ -172,7 +214,10 @@ function initMenu() {
       const type = SPIGOT_ELEMENT_OPTIONS[k];
       const option = document.createElement("option");
       option.value = type;
-      option.text = menuNames[type];
+      option.text =
+        typeof getElementDisplayName === "function"
+          ? getElementDisplayName(type)
+          : menuNames[type];
       if (i === k) {
         option.selected = "selected";
         SPIGOT_ELEMENTS[i] = type;
@@ -223,6 +268,113 @@ function initMenu() {
     OVERWRITE_ENABLED = overwriteCheckbox.checked;
   });
 
+  const borderCheckbox = document.getElementById("borderCheckbox");
+  document.body.classList.toggle("borderless", !borderCheckbox.checked);
+  borderCheckbox.addEventListener("click", function () {
+    document.body.classList.toggle("borderless", !borderCheckbox.checked);
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  });
+
+  const hapticsButton = document.getElementById("hapticsButton");
+  hapticsButton.addEventListener("click", function () {
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.toggle();
+    }
+  });
+
+  const tiltModeCheckbox = document.getElementById("tiltModeCheckbox");
+  const tiltBucketSlider = document.getElementById("tiltBucketSlider");
+  const tiltStrengthSlider = document.getElementById("tiltStrengthSlider");
+  const tiltBucketValue = document.getElementById("tiltBucketValue");
+  const tiltStrengthValue = document.getElementById("tiltStrengthValue");
+  const tiltSceneSandButton = document.getElementById("tiltSceneSandButton");
+  const tiltSceneMixedButton = document.getElementById("tiltSceneMixedButton");
+  const tiltSceneGasButton = document.getElementById("tiltSceneGasButton");
+  const tiltSceneClearButton = document.getElementById("tiltSceneClearButton");
+  const tiltDirectionDownButton = document.getElementById("tiltDirectionDownButton");
+  const tiltDirectionDownRightButton = document.getElementById("tiltDirectionDownRightButton");
+  const tiltDirectionRightButton = document.getElementById("tiltDirectionRightButton");
+  const tiltDirectionUpRightButton = document.getElementById("tiltDirectionUpRightButton");
+
+  function syncTiltDebugControls() {
+    const tiltState =
+      typeof window.getTiltBenchmarkState === "function"
+        ? window.getTiltBenchmarkState()
+        : { bucket: gravityBucketIndex, strength: 1 };
+    tiltBucketSlider.value = tiltState.bucket;
+    tiltStrengthSlider.value = Math.round(tiltState.strength * 100);
+    tiltBucketValue.innerText = tiltState.bucket.toString(10);
+    tiltStrengthValue.innerText = tiltState.strength.toFixed(2);
+  }
+
+  function enableTiltMotionInBackground() {
+    if (!window.projectAmberPlatform || !window.projectAmberPlatform.device) return;
+    Promise.resolve(window.projectAmberPlatform.device.enableTilt()).catch(function () {});
+  }
+
+  tiltModeCheckbox.checked =
+    typeof gravityState !== "undefined" && gravityState.strategy === "family32";
+  tiltBucketSlider.min = 0;
+  tiltBucketSlider.max = 31;
+  tiltBucketSlider.value = gravityBucketIndex.toString(10);
+  tiltStrengthSlider.min = 0;
+  tiltStrengthSlider.max = 100;
+  tiltStrengthSlider.value = "100";
+  tiltModeCheckbox.addEventListener("click", function () {
+    if (tiltModeCheckbox.checked) {
+      window.setGravityExperimentMode("family32", gravityBucketIndex);
+      enableTiltMotionInBackground();
+    } else window.setGravityExperimentMode("default");
+    syncTiltDebugControls();
+  });
+  tiltBucketSlider.addEventListener("input", function () {
+    window.setTiltBenchmarkState({
+      strategy: tiltModeCheckbox.checked ? "family32" : "baseline",
+      bucket: parseInt(tiltBucketSlider.value, 10),
+      strength: parseInt(tiltStrengthSlider.value, 10) / 100
+    });
+    syncTiltDebugControls();
+  });
+  tiltStrengthSlider.addEventListener("input", function () {
+    window.setTiltBenchmarkState({
+      strategy: tiltModeCheckbox.checked ? "family32" : "baseline",
+      bucket: parseInt(tiltBucketSlider.value, 10),
+      strength: parseInt(tiltStrengthSlider.value, 10) / 100
+    });
+    syncTiltDebugControls();
+  });
+  tiltSceneSandButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("sand");
+  });
+  tiltSceneMixedButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("mixed");
+  });
+  tiltSceneGasButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("gas");
+  });
+  tiltSceneClearButton.addEventListener("click", function () {
+    window.loadBenchmarkScene("clear");
+  });
+  tiltDirectionDownButton.addEventListener("click", function () {
+    window.setTiltGravityVector(0, 1);
+    syncTiltDebugControls();
+  });
+  tiltDirectionDownRightButton.addEventListener("click", function () {
+    window.setTiltGravityVector(0.7, 0.7);
+    syncTiltDebugControls();
+  });
+  tiltDirectionRightButton.addEventListener("click", function () {
+    window.setTiltGravityVector(1, 0);
+    syncTiltDebugControls();
+  });
+  tiltDirectionUpRightButton.addEventListener("click", function () {
+    window.setTiltGravityVector(0.7, -0.7);
+    syncTiltDebugControls();
+  });
+  syncTiltDebugControls();
+
   /* speed slider */
   const speedSlider = document.getElementById("speedSlider");
   speedSlider.min = 0;
@@ -247,15 +399,30 @@ function initMenu() {
 
   /* clear button */
   const clearButton = document.getElementById("clearButton");
-  clearButton.onclick = clearGameCanvas;
+  clearButton.onclick = function () {
+    clearGameCanvas();
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  };
 
   /* save button */
   const saveButton = document.getElementById("saveButton");
-  saveButton.onclick = saveGameCanvas;
+  saveButton.onclick = function () {
+    saveGameCanvas();
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  };
 
   /* load button */
   const loadButton = document.getElementById("loadButton");
-  loadButton.onclick = loadGameCanvas;
+  loadButton.onclick = function () {
+    loadGameCanvas();
+    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
+      window.projectAmberPlatform.haptics.light();
+    }
+  };
 }
 
 function drawFPSLabel(fps) {
