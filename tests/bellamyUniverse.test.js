@@ -401,8 +401,8 @@ function testTiltGravityCandidatesStayLocal() {
   const gravityMatch = elementsSource.match(/function doGravity\(x, y, i, fallAdjacent, chance\) \{([\s\S]*?)\n\}/);
   assert(gravityMatch, "elements.js should contain doGravity body");
   assert(
-    gravityMatch[1].includes("__frameGravityOffsets !== null"),
-    "doGravity should use the per-frame cached offsets instead of per-pixel mode checks"
+    gravityMatch[1].includes("__frameGravityFlat !== null"),
+    "doGravity should use the per-frame cached flat offsets instead of per-pixel mode checks"
   );
 
   assert(
