@@ -1758,7 +1758,9 @@ var __frameGravityOffsets = null;
 var __frameGravityChanceScale = 1;
 var __frameGravityIsBaseline = true;
 var __frameGravityFlat = null;
+var __frameGravityFlatAlt = null;
 var __frameGravityInverseFlat = null;
+var __frameGravityInverseFlatAlt = null;
 var __frameGravityFlatLen = 0;
 
 function __buildFlatOffsets(offsets, invert) {
@@ -1779,12 +1781,26 @@ function __buildFlatOffsets(offsets, invert) {
   return flat;
 }
 
+function __buildFlatOffsetsAlt(flat, flatLen) {
+  if (flatLen < 10) return flat;
+  const alt = new Int32Array(flat);
+  /* Swap first two candidates (stride-5 entries) */
+  for (var k = 0; k < 5; k++) {
+    const tmp = alt[k];
+    alt[k] = alt[k + 5];
+    alt[k + 5] = tmp;
+  }
+  return alt;
+}
+
 function syncFrameGravity() {
   const mode = gravityExperimentMode;
   if (mode === "default" || mode === "baseline") {
     __frameGravityOffsets = null;
     __frameGravityFlat = null;
+    __frameGravityFlatAlt = null;
     __frameGravityInverseFlat = null;
+    __frameGravityInverseFlatAlt = null;
     __frameGravityFlatLen = 0;
     __frameGravityChanceScale = 1;
     __frameGravityIsBaseline = true;
@@ -1807,12 +1823,16 @@ function syncFrameGravity() {
     __frameGravityOffsets = null;
 
   if (__frameGravityOffsets !== null) {
-    __frameGravityFlat = __buildFlatOffsets(__frameGravityOffsets, false);
-    __frameGravityInverseFlat = __buildFlatOffsets(__frameGravityOffsets, true);
     __frameGravityFlatLen = __frameGravityOffsets.length * 5;
+    __frameGravityFlat = __buildFlatOffsets(__frameGravityOffsets, false);
+    __frameGravityFlatAlt = __buildFlatOffsetsAlt(__frameGravityFlat, __frameGravityFlatLen);
+    __frameGravityInverseFlat = __buildFlatOffsets(__frameGravityOffsets, true);
+    __frameGravityInverseFlatAlt = __buildFlatOffsetsAlt(__frameGravityInverseFlat, __frameGravityFlatLen);
   } else {
     __frameGravityFlat = null;
+    __frameGravityFlatAlt = null;
     __frameGravityInverseFlat = null;
+    __frameGravityInverseFlatAlt = null;
     __frameGravityFlatLen = 0;
   }
 }
@@ -1822,10 +1842,11 @@ function scaleGravityChance(chance) {
   return Math.max(0, Math.min(100, Math.round(chance * __frameGravityChanceScale)));
 }
 
-function __findFlatMove(x, y, i, flat, flatLen, targetElem) {
+function __findFlatMove(x, y, i, flat, flatAlt, flatLen, targetElem) {
+  const f = (x ^ y) & 1 ? flatAlt : flat;
   for (var j = 0; j < flatLen; j += 5) {
-    if (x >= flat[j + 1] && x <= flat[j + 2] && y >= flat[j + 3] && y <= flat[j + 4]) {
-      const nextI = i + flat[j];
+    if (x >= f[j + 1] && x <= f[j + 2] && y >= f[j + 3] && y <= f[j + 4]) {
+      const nextI = i + f[j];
       if (gameImagedata32[nextI] === targetElem) return nextI;
     }
   }
@@ -1836,7 +1857,7 @@ function doGravity(x, y, i, fallAdjacent, chance) {
   if (random() >= scaleGravityChance(chance)) return false;
 
   if (__frameGravityFlat !== null) {
-    const experimentalMove = __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatLen, BACKGROUND);
+    const experimentalMove = __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, BACKGROUND);
     if (experimentalMove !== -1) {
       gameImagedata32[experimentalMove] = gameImagedata32[i];
       gameImagedata32[i] = BACKGROUND;
@@ -1878,7 +1899,7 @@ function doRise(x, y, i, riseChance, adjacentChance) {
   const scaledRiseChance = scaleGravityChance(riseChance);
   const scaledAdjacentChance = scaleGravityChance(adjacentChance);
   if (__frameGravityInverseFlat !== null && random() < scaledRiseChance) {
-    newI = __findFlatMove(x, y, i, __frameGravityInverseFlat, __frameGravityFlatLen, BACKGROUND);
+    newI = __findFlatMove(x, y, i, __frameGravityInverseFlat, __frameGravityInverseFlatAlt, __frameGravityFlatLen, BACKGROUND);
   }
 
   if (random() < scaledRiseChance) {
