@@ -8,7 +8,8 @@ const {
   testColorFamiliesStayCoherent,
   testTemperatureLoopIsSparse,
   testSunlightChecksAreBounded,
-  testMethaneStaysLocalAndCheap
+  testMethaneStaysLocalAndCheap,
+  testBlackHoleStaysLocal
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -22,6 +23,7 @@ try {
   testTemperatureLoopIsSparse();
   testSunlightChecksAreBounded();
   testMethaneStaysLocalAndCheap();
+  testBlackHoleStaysLocal();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

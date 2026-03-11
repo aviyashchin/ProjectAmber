@@ -904,24 +904,14 @@ function CLOUD_ACTION(x, y, i) {
     addTemperatureAt(i, -1);
   }
 
-  const nearbyClouds = borderingAdjacentCount(x, y, i, CLOUD);
-  if (doDensityGas(x, y, i, nearbyClouds >= 3 ? 40 : 55)) return;
-  if (doRise(x, y, i, nearbyClouds >= 3 ? 18 : 35, 45)) return;
+  if (doDensityGas(x, y, i, 55)) return;
+  if (doRise(x, y, i, 35, 45)) return;
 
-  if (nearbyClouds >= 4 && random() < 8) {
-    const sagLoc = below(y, i, BACKGROUND);
-    if (sagLoc !== -1) {
-      gameImagedata32[sagLoc] = CLOUD;
-      gameImagedata32[i] = BACKGROUND;
-      return;
-    }
-  }
-
-  if (nearbyClouds >= 2 && random() < (nearbyClouds >= 4 ? 18 : 8)) {
+  if (random() < 8 && borderingAdjacent(x, y, i, CLOUD) !== -1) {
     const rainLoc = below(y, i, BACKGROUND);
     if (rainLoc !== -1) {
       gameImagedata32[rainLoc] = RAIN;
-      if (random() < (nearbyClouds >= 4 ? 15 : 30)) gameImagedata32[i] = BACKGROUND;
+      if (random() < 30) gameImagedata32[i] = BACKGROUND;
       return;
     }
   }
@@ -1058,47 +1048,17 @@ function CRYO_ACTION(x, y, i) {
 }
 
 function BLACK_HOLE_ACTION(x, y, i) {
-  if ((x + y) % 2 !== frameDebt % 2) return;
-
-  const pullRadius = 4;
-  var dx, dy;
-  for (dy = -pullRadius; dy <= pullRadius; dy++) {
-    for (dx = -pullRadius; dx <= pullRadius; dx++) {
-      if (dx === 0 && dy === 0) continue;
-
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx < 0 || nx > MAX_X_IDX || ny < 0 || ny > MAX_Y_IDX) continue;
-
-      const neighborIdx = ny * width + nx;
-      const elem = gameImagedata32[neighborIdx];
-      if (
-        elem === BACKGROUND ||
-        elem === WALL ||
-        elem === SPOUT ||
-        elem === WELL ||
-        elem === TORCH ||
-        elem === SUN ||
-        elem === CRYO ||
-        elem === BLACK_HOLE
-      ) {
-        continue;
-      }
-
-      const stepX = dx > 0 ? -1 : (dx < 0 ? 1 : 0);
-      const stepY = dy > 0 ? -1 : (dy < 0 ? 1 : 0);
-      const targetX = nx + stepX;
-      const targetY = ny + stepY;
-      const targetIdx = neighborIdx + stepY * width + stepX;
-
-      if (targetX === x && targetY === y) {
-        gameImagedata32[neighborIdx] = BACKGROUND;
-        continue;
-      }
-
-      if (gameImagedata32[targetIdx] === BACKGROUND && random() < 60) {
-        gameImagedata32[targetIdx] = elem;
-        gameImagedata32[neighborIdx] = BACKGROUND;
+  if (random() < 45) {
+    const targetIdx = borderingAdjacent(x, y, i, BACKGROUND);
+    if (targetIdx !== -1) {
+      const mealIdx =
+        borderingAdjacent(x, y, i, SAND) !== -1 ? borderingAdjacent(x, y, i, SAND) :
+        borderingAdjacent(x, y, i, WATER) !== -1 ? borderingAdjacent(x, y, i, WATER) :
+        borderingAdjacent(x, y, i, RAIN) !== -1 ? borderingAdjacent(x, y, i, RAIN) :
+        borderingAdjacent(x, y, i, METHANE) !== -1 ? borderingAdjacent(x, y, i, METHANE) :
+        borderingAdjacent(x, y, i, FIRE);
+      if (mealIdx !== -1) {
+        gameImagedata32[mealIdx] = BACKGROUND;
       }
     }
   }

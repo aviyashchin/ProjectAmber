@@ -170,9 +170,9 @@ function testWeatherStateAndForceFamilies() {
   const cloudActionMatch = elementsSource.match(/function CLOUD_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   assert(cloudActionMatch, "elements.js should contain CLOUD_ACTION body");
   assert(
-    cloudActionMatch[1].includes("borderingAdjacentCount(x, y, i, CLOUD)") &&
-    cloudActionMatch[1].includes("below(y, i, BACKGROUND)"),
-    "CLOUD_ACTION should use nearby cloud clustering and space below for rain formation"
+    !cloudActionMatch[1].includes("borderingAdjacentCount(") &&
+    !cloudActionMatch[1].includes("nearbyClouds >= 4"),
+    "CLOUD_ACTION should avoid extra clustering logic in fast local sandbox mode"
   );
 
   assert(
@@ -261,6 +261,19 @@ function testMethaneStaysLocalAndCheap() {
   );
 }
 
+function testBlackHoleStaysLocal() {
+  const elementsSource = read("scripts/elements.js");
+  const blackHoleActionMatch = elementsSource.match(/function BLACK_HOLE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(blackHoleActionMatch, "elements.js should contain BLACK_HOLE_ACTION body");
+  assert(
+    !blackHoleActionMatch[1].includes("pullRadius") &&
+    !blackHoleActionMatch[1].includes("for (dy =") &&
+    !blackHoleActionMatch[1].includes("for (dx ="),
+    "BLACK_HOLE_ACTION should avoid radius scans in fast local sandbox mode"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -271,5 +284,6 @@ module.exports = {
   testColorFamiliesStayCoherent,
   testTemperatureLoopIsSparse,
   testSunlightChecksAreBounded,
-  testMethaneStaysLocalAndCheap
+  testMethaneStaysLocalAndCheap,
+  testBlackHoleStaysLocal
 };
