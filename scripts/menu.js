@@ -106,6 +106,9 @@ menuAltColors[BACKGROUND] = "rgb(200, 100, 200)";
 menuAltColors[WELL] = "rgb(158, 13, 33)";
 menuAltColors[SOIL] = "rgb(171, 110, 53)";
 
+const fpsCounter = document.getElementById("fps-counter");
+const zombieCountLabel = document.getElementById("zombieCount");
+
 function initMenu() {
   /* The wrapper div that holds the entire menu */
   const menu = document.getElementById("menuWrapper");
@@ -439,9 +442,9 @@ function initMenu() {
 }
 
 function drawFPSLabel(fps) {
-  document.getElementById("fps-counter").innerText = "FPS: " + fps;
+  fpsCounter.innerText = "FPS: " + fps;
 }
 
 function drawZombieCount(val) {
-  document.getElementById("zombieCount").innerText = val;
+  zombieCountLabel.innerText = val;
 }

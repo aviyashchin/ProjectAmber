@@ -62,6 +62,7 @@ function initSpigots() {
 
 function updateSpigots() {
   if (!SPIGOTS_ENABLED) return;
+  if (typeof resetActiveBands === "function") resetActiveBands();
 
   var i, w, h;
   for (i = 0; i !== NUM_SPIGOTS; i++) {

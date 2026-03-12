@@ -14,7 +14,25 @@ const {
   testTiltGravityExperimentSwitchExists,
   testTiltGravityCandidatesStayLocal,
   testTiltGravityBenchmarkNotesExist,
-  testPlatformSeamAndHapticsExist
+  testPlatformSeamAndHapticsExist,
+  testDensityTablesExist,
+  testGenericDensityHelpersExist,
+  testTiltDensityHelpersUseGravityPrimitives,
+  testTiltSettledSkipExists,
+  testTiltGasThrottleExists,
+  testHotLoopUsesElementIndexLookup,
+  testLocalReactionLookupTablesExist,
+  testHotAndColdActionsAreSlightlyStronger,
+  testSettledSkipCoversCommonTiltMovers,
+  testNeighborFlagLookupsReduceRepeatedQueries,
+  testGasPassesThroughDifferentGasLocally,
+  testParticlesStayOnCanvasAndAvoidReadback,
+  testHudNodesAreCached,
+  testPerfCounterAvoidsShift,
+  testElementMetadataUsesCompactLookup,
+  testHotLoopFastPathsExist,
+  testPureHorizontalTiltKeepsGasHorizontal,
+  testTiltActiveBandsExist
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -34,6 +52,24 @@ try {
   testTiltGravityCandidatesStayLocal();
   testTiltGravityBenchmarkNotesExist();
   testPlatformSeamAndHapticsExist();
+  testDensityTablesExist();
+  testGenericDensityHelpersExist();
+  testTiltDensityHelpersUseGravityPrimitives();
+  testTiltSettledSkipExists();
+  testTiltGasThrottleExists();
+  testHotLoopUsesElementIndexLookup();
+  testLocalReactionLookupTablesExist();
+  testHotAndColdActionsAreSlightlyStronger();
+  testSettledSkipCoversCommonTiltMovers();
+  testNeighborFlagLookupsReduceRepeatedQueries();
+  testGasPassesThroughDifferentGasLocally();
+  testParticlesStayOnCanvasAndAvoidReadback();
+  testHudNodesAreCached();
+  testPerfCounterAvoidsShift();
+  testElementMetadataUsesCompactLookup();
+  testHotLoopFastPathsExist();
+  testPureHorizontalTiltKeepsGasHorizontal();
+  testTiltActiveBandsExist();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

@@ -59,6 +59,8 @@ var lastLoop = 0;
 var frameDebt = 0;
 var lastFPSLabelUpdate = 0;
 const refreshTimes = [];
+var refreshTimesStart = 0;
+const ELEMENT_ACTION_INDEX = new Uint8Array(0x40000);
 var gravityExperimentMode = "default";
 var gravityBucketCount = 16;
 var gravityBucketIndex = 0;
@@ -95,6 +97,14 @@ const tiltRowTraversalModes = new Uint8Array(height);
 const tiltColumnTraversalModes = new Uint8Array(width);
 const traversalFamilyDescriptors = [];
 const traversalBucketDescriptors = [];
+var activeRowMin = 0;
+var activeRowMax = MAX_Y_IDX;
+var activeColMin = 0;
+var activeColMax = MAX_X_IDX;
+var nextActiveRowMin = MAX_Y_IDX;
+var nextActiveRowMax = -1;
+var nextActiveColMin = MAX_X_IDX;
+var nextActiveColMax = -1;
 
 window.setGravityExperimentMode = function (mode, bucketIdx) {
   gravityExperimentMode = mode || "default";
@@ -204,6 +214,48 @@ window.loadBenchmarkScene = function (name) {
 };
 
 /* ========================================================================= */
+
+function initElementActionIndex() {
+  for (var idx = 0; idx < elements.length; idx++) {
+    ELEMENT_ACTION_INDEX[elements[idx] & 0x30303] = idx;
+  }
+}
+
+function resetActiveBands() {
+  activeRowMin = 0;
+  activeRowMax = MAX_Y_IDX;
+  activeColMin = 0;
+  activeColMax = MAX_X_IDX;
+}
+
+function beginActiveBands() {
+  nextActiveRowMin = MAX_Y_IDX;
+  nextActiveRowMax = -1;
+  nextActiveColMin = MAX_X_IDX;
+  nextActiveColMax = -1;
+}
+
+function noteActiveBand(x, y) {
+  if (y < nextActiveRowMin) nextActiveRowMin = y;
+  if (y > nextActiveRowMax) nextActiveRowMax = y;
+  if (x < nextActiveColMin) nextActiveColMin = x;
+  if (x > nextActiveColMax) nextActiveColMax = x;
+}
+
+function finishActiveBands() {
+  if (nextActiveRowMax === -1 || nextActiveColMax === -1) {
+    activeRowMin = 0;
+    activeRowMax = -1;
+    activeColMin = 0;
+    activeColMax = -1;
+    return;
+  }
+
+  activeRowMin = Math.max(0, nextActiveRowMin - 2);
+  activeRowMax = Math.min(MAX_Y_IDX, nextActiveRowMax + 2);
+  activeColMin = Math.max(0, nextActiveColMin - 2);
+  activeColMax = Math.min(MAX_X_IDX, nextActiveColMax + 2);
+}
 
 function syncGravityState() {
   const bucketCount = gravityBucketCount > 0 ? gravityBucketCount : 16;
@@ -323,6 +375,7 @@ function projectTiltVector(x, y, z) {
 }
 
 function fillBenchmarkBand(elem, startRatio, endRatio) {
+  resetActiveBands();
   const startX = Math.floor(width * startRatio);
   const endX = Math.floor(width * endRatio);
   const bandHeight = Math.max(8, Math.floor(height * 0.08));
@@ -438,6 +491,7 @@ function init() {
 
   initCursors();
   initElements();
+  initElementActionIndex();
   initParticles();
   initSpigots();
   initMenu();
@@ -509,9 +563,17 @@ function updateGame() {
           i--;
           continue; /* optimize to skip background */
         }
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-        elementActions[elem_idx](x, Y, i);
+        if (elem === WALL) {
+          i--;
+          continue;
+        }
+        if (elem === SAND) SAND_ACTION(x, Y, i);
+        else if (elem === WATER) WATER_ACTION(x, Y, i);
+        else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
+        else {
+          const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+          elementActions[elem_idx](x, Y, i);
+        }
         i--;
       }
       i++;
@@ -522,9 +584,17 @@ function updateGame() {
           i++;
           continue;
         }
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-        elementActions[elem_idx](x, Y, i);
+        if (elem === WALL) {
+          i++;
+          continue;
+        }
+        if (elem === SAND) SAND_ACTION(x, Y, i);
+        else if (elem === WATER) WATER_ACTION(x, Y, i);
+        else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
+        else {
+          const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+          elementActions[elem_idx](x, Y, i);
+        }
         i++;
       }
       i--;
@@ -542,19 +612,35 @@ function updateGameFamily32() {
   const dy = bucketVector[1];
   const absDx = dx < 0 ? -dx : dx;
   const absDy = dy < 0 ? -dy : dy;
+  beginActiveBands();
 
   if (absDx > absDy) {
-    if (dx > 0) updateGameColumns(MAX_X_IDX, -1, -1, MAX_X_IDX & 1);
-    else updateGameColumns(0, width, 1, 0);
+    const colStart = Math.max(0, activeColMin);
+    const colStop = Math.min(MAX_X_IDX, activeColMax);
+    if (colStart > colStop) {
+      finishActiveBands();
+      return;
+    }
+    if (dx > 0) updateGameColumns(colStop, colStart - 1, -1, colStop & 1);
+    else updateGameColumns(colStart, colStop + 1, 1, colStart & 1);
+    finishActiveBands();
     return;
   }
 
+  const rowStart = Math.max(0, activeRowMin);
+  const rowStop = Math.min(MAX_Y_IDX, activeRowMax);
+  if (rowStart > rowStop) {
+    finishActiveBands();
+    return;
+  }
   if (dy < 0) {
-    updateGameRows(0, height, 1, 0);
+    updateGameRows(rowStart, rowStop + 1, 1, rowStart & 1);
+    finishActiveBands();
     return;
   }
 
-  updateGameRows(MAX_Y_IDX, -1, -1, MAX_Y_IDX & 1);
+  updateGameRows(rowStop, rowStart - 1, -1, rowStop & 1);
+  finishActiveBands();
 }
 
 function updateGameRows(yStart, yStop, yStep, direction) {
@@ -572,9 +658,18 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i--;
           continue;
         }
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-        elementActions[elem_idx](x, Y, i);
+        noteActiveBand(x, Y);
+        if (elem === WALL) {
+          i--;
+          continue;
+        }
+        if (elem === SAND) SAND_ACTION(x, Y, i);
+        else if (elem === WATER) WATER_ACTION(x, Y, i);
+        else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
+        else {
+          const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+          elementActions[elem_idx](x, Y, i);
+        }
         i--;
       }
     } else if (lineJitter === 1) {
@@ -585,9 +680,18 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i++;
           continue;
         }
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-        elementActions[elem_idx](x, Y, i);
+        noteActiveBand(x, Y);
+        if (elem === WALL) {
+          i++;
+          continue;
+        }
+        if (elem === SAND) SAND_ACTION(x, Y, i);
+        else if (elem === WATER) WATER_ACTION(x, Y, i);
+        else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
+        else {
+          const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+          elementActions[elem_idx](x, Y, i);
+        }
         i++;
       }
     } else if ((Y & 1) === direction) {
@@ -598,9 +702,18 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i--;
           continue;
         }
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-        elementActions[elem_idx](x, Y, i);
+        noteActiveBand(x, Y);
+        if (elem === WALL) {
+          i--;
+          continue;
+        }
+        if (elem === SAND) SAND_ACTION(x, Y, i);
+        else if (elem === WATER) WATER_ACTION(x, Y, i);
+        else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
+        else {
+          const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+          elementActions[elem_idx](x, Y, i);
+        }
         i--;
       }
     } else {
@@ -611,9 +724,18 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i++;
           continue;
         }
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-        elementActions[elem_idx](x, Y, i);
+        noteActiveBand(x, Y);
+        if (elem === WALL) {
+          i++;
+          continue;
+        }
+        if (elem === SAND) SAND_ACTION(x, Y, i);
+        else if (elem === WATER) WATER_ACTION(x, Y, i);
+        else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
+        else {
+          const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+          elementActions[elem_idx](x, Y, i);
+        }
         i++;
       }
     }
@@ -632,9 +754,16 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = MAX_Y_IDX; y !== -1; y--) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          const elem_idx =
-            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-          elementActions[elem_idx](X, y, i);
+          noteActiveBand(X, y);
+          if (elem !== WALL) {
+            if (elem === SAND) SAND_ACTION(X, y, i);
+            else if (elem === WATER) WATER_ACTION(X, y, i);
+            else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
+            else {
+              const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+              elementActions[elem_idx](X, y, i);
+            }
+          }
         }
         i -= width;
       }
@@ -643,9 +772,16 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = 0; y !== height; y++) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          const elem_idx =
-            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-          elementActions[elem_idx](X, y, i);
+          noteActiveBand(X, y);
+          if (elem !== WALL) {
+            if (elem === SAND) SAND_ACTION(X, y, i);
+            else if (elem === WATER) WATER_ACTION(X, y, i);
+            else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
+            else {
+              const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+              elementActions[elem_idx](X, y, i);
+            }
+          }
         }
         i += width;
       }
@@ -654,9 +790,16 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = MAX_Y_IDX; y !== -1; y--) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          const elem_idx =
-            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-          elementActions[elem_idx](X, y, i);
+          noteActiveBand(X, y);
+          if (elem !== WALL) {
+            if (elem === SAND) SAND_ACTION(X, y, i);
+            else if (elem === WATER) WATER_ACTION(X, y, i);
+            else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
+            else {
+              const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+              elementActions[elem_idx](X, y, i);
+            }
+          }
         }
         i -= width;
       }
@@ -665,9 +808,16 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = 0; y !== height; y++) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          const elem_idx =
-            ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
-          elementActions[elem_idx](X, y, i);
+          noteActiveBand(X, y);
+          if (elem !== WALL) {
+            if (elem === SAND) SAND_ACTION(X, y, i);
+            else if (elem === WATER) WATER_ACTION(X, y, i);
+            else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
+            else {
+              const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
+              elementActions[elem_idx](X, y, i);
+            }
+          }
         }
         i += width;
       }
@@ -689,8 +839,7 @@ function updateGameWithDescriptor(descriptor) {
     for (iter = 0; iter < line.length; iter++) {
       const elem = gameImagedata32[i];
       if (elem !== BACKGROUND) {
-        const elem_idx =
-          ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+        const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];
         elementActions[elem_idx](x, y, i);
       }
       x += line.stepX;
@@ -711,9 +860,11 @@ function draw() {
    */
   onscreenCtx.setTransform(onscreenPixelRatio, 0, 0, onscreenPixelRatio, 0, 0);
   onscreenCtx.drawImage(gameCanvas, 0, 0, width, height);
+  onscreenCtx.drawImage(offscreenParticleCanvas, 0, 0, width, height);
 }
 
 function setGameCanvas(elem) {
+  resetActiveBands();
   const iterEnd = MAX_IDX + 1;
   for (var i = 0; i !== iterEnd; i++) {
     gameImagedata32[i] = elem;
@@ -748,19 +899,25 @@ function loadGameCanvas() {
   const iterEnd = MAX_IDX + 1;
   for (var i = 0; i !== iterEnd; i++)
     gameImagedata32[i] = saveGameImagedata32[i];
+  resetActiveBands();
 }
 
 /* Signal that we've updated a game frame to our FPS counter */
 function perfRecordFrame() {
   const now = performance.now();
   const oneSecondAgo = now - 1000;
-  while (refreshTimes.length > 0 && refreshTimes[0] <= oneSecondAgo) {
-    refreshTimes.shift();
+  while (refreshTimesStart < refreshTimes.length && refreshTimes[refreshTimesStart] <= oneSecondAgo) {
+    refreshTimesStart++;
   }
   refreshTimes.push(now);
 
+  if (refreshTimesStart > 64 && refreshTimesStart * 2 > refreshTimes.length) {
+    refreshTimes.splice(0, refreshTimesStart);
+    refreshTimesStart = 0;
+  }
+
   if (now - lastFPSLabelUpdate > 200) {
-    drawFPSLabel(refreshTimes.length);
+    drawFPSLabel(refreshTimes.length - refreshTimesStart);
     lastFPSLabelUpdate = now;
   }
 }

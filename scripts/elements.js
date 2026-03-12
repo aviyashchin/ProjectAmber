@@ -236,6 +236,152 @@ Object.freeze(elementActions);
 const GAS_PERMEABLE = {};
 
 const NUM_ELEMENTS = elements.length;
+const STATE_CLASS_EMPTY = 0;
+const STATE_CLASS_STATIC = 1;
+const STATE_CLASS_POWDER = 2;
+const STATE_CLASS_LIQUID = 3;
+const STATE_CLASS_GAS = 4;
+const STATE_CLASS_SPECIAL = 5;
+const ELEMENT_STATE_CLASS = new Uint8Array(64);
+const ELEMENT_DENSITY = new Uint8Array(64);
+const ELEMENT_TILT_SETTLE = new Uint8Array(64);
+const ELEMENT_NEIGHBOR_FLAGS = new Uint8Array(64);
+const ELEMENT_HEAT_RESULT = new Uint32Array(64);
+const ELEMENT_HEAT_CHANCE = new Uint8Array(64);
+const ELEMENT_COLD_RESULT = new Uint32Array(64);
+const ELEMENT_COLD_CHANCE = new Uint8Array(64);
+const ELEMENT_META_INDEX = new Uint8Array(0x40000);
+const NEIGHBOR_FLAG_HOT_SOURCE = 1;
+const NEIGHBOR_FLAG_COOLANT = 2;
+const NEIGHBOR_FLAG_WATER = 4;
+const NEIGHBOR_FLAG_FLAME_KEEPER = 8;
+const NEIGHBOR_FLAG_HEAT_FUEL = 16;
+var TILT_SETTLED_SKIP = null;
+
+function __clearTiltSettledSkip(i) {
+  if (TILT_SETTLED_SKIP === null) return;
+  TILT_SETTLED_SKIP[i] = 0;
+}
+
+function __consumeTiltSettledSkip(i) {
+  if (TILT_SETTLED_SKIP === null) return false;
+  if (__frameGravityIsBaseline || gravityExperimentMode !== "family32") {
+    TILT_SETTLED_SKIP[i] = 0;
+    return false;
+  }
+  const skip = TILT_SETTLED_SKIP[i];
+  if (skip === 0) return false;
+  TILT_SETTLED_SKIP[i] = skip - 1;
+  return true;
+}
+
+function __markTiltSettledSkip(i) {
+  if (TILT_SETTLED_SKIP === null) return;
+  if (__frameGravityIsBaseline || gravityExperimentMode !== "family32") return;
+  TILT_SETTLED_SKIP[i] = 2;
+}
+
+function __shouldUseTiltSettledSkip(elem) {
+  return ELEMENT_TILT_SETTLE[ELEMENT_META_INDEX[elem & 0x30303]] !== 0;
+}
+
+function __tiltGasThrottleChance(baseChance) {
+  if (__frameGravityIsBaseline || gravityExperimentMode !== "family32") return baseChance;
+  return Math.min(95, baseChance + 8);
+}
+
+function __elementIndex(elem) {
+  return ((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);
+}
+
+function __setElementPhysics(elem, stateClass, density) {
+  const idx = ELEMENT_META_INDEX[elem & 0x30303];
+  ELEMENT_STATE_CLASS[idx] = stateClass;
+  ELEMENT_DENSITY[idx] = density;
+}
+
+function __setNeighborFlags(elem, flags) {
+  ELEMENT_NEIGHBOR_FLAGS[ELEMENT_META_INDEX[elem & 0x30303]] |= flags;
+}
+
+function __setHeatReaction(elem, result, chance) {
+  const idx = ELEMENT_META_INDEX[elem & 0x30303];
+  ELEMENT_HEAT_RESULT[idx] = result;
+  ELEMENT_HEAT_CHANCE[idx] = chance;
+}
+
+function __setColdReaction(elem, result, chance) {
+  const idx = ELEMENT_META_INDEX[elem & 0x30303];
+  ELEMENT_COLD_RESULT[idx] = result;
+  ELEMENT_COLD_CHANCE[idx] = chance;
+}
+
+function initElementPhysics() {
+  __setElementPhysics(BACKGROUND, STATE_CLASS_EMPTY, 0);
+  __setElementPhysics(WALL, STATE_CLASS_STATIC, 7);
+  __setElementPhysics(SAND, STATE_CLASS_POWDER, 5);
+  __setElementPhysics(WATER, STATE_CLASS_LIQUID, 3);
+  __setElementPhysics(SALT, STATE_CLASS_POWDER, 5);
+  __setElementPhysics(SALT_WATER, STATE_CLASS_LIQUID, 4);
+  __setElementPhysics(OIL, STATE_CLASS_LIQUID, 2);
+  __setElementPhysics(CONCRETE, STATE_CLASS_STATIC, 7);
+  __setElementPhysics(ICE, STATE_CLASS_STATIC, 5);
+  __setElementPhysics(CHILLED_ICE, STATE_CLASS_STATIC, 5);
+  __setElementPhysics(LAVA, STATE_CLASS_LIQUID, 6);
+  __setElementPhysics(ROCK, STATE_CLASS_POWDER, 6);
+  __setElementPhysics(STEAM, STATE_CLASS_GAS, 1);
+  __setElementPhysics(CLOUD, STATE_CLASS_GAS, 1);
+  __setElementPhysics(RAIN, STATE_CLASS_LIQUID, 3);
+  __setElementPhysics(METHANE, STATE_CLASS_GAS, 0);
+  __setElementPhysics(SOIL, STATE_CLASS_POWDER, 4);
+  __setElementPhysics(WET_SOIL, STATE_CLASS_POWDER, 4);
+  __setElementPhysics(ACID, STATE_CLASS_LIQUID, 3);
+
+  ELEMENT_TILT_SETTLE[__elementIndex(SAND)] = 1;
+  ELEMENT_TILT_SETTLE[__elementIndex(SALT)] = 1;
+  ELEMENT_TILT_SETTLE[__elementIndex(WATER)] = 1;
+  ELEMENT_TILT_SETTLE[__elementIndex(SALT_WATER)] = 1;
+  ELEMENT_TILT_SETTLE[__elementIndex(OIL)] = 1;
+
+  __setNeighborFlags(FIRE, NEIGHBOR_FLAG_HOT_SOURCE);
+  __setNeighborFlags(SUN, NEIGHBOR_FLAG_HOT_SOURCE);
+  __setNeighborFlags(LAVA, NEIGHBOR_FLAG_HOT_SOURCE);
+  __setNeighborFlags(TORCH, NEIGHBOR_FLAG_HOT_SOURCE);
+  __setNeighborFlags(WATER, NEIGHBOR_FLAG_COOLANT | NEIGHBOR_FLAG_WATER);
+  __setNeighborFlags(SALT_WATER, NEIGHBOR_FLAG_COOLANT | NEIGHBOR_FLAG_WATER);
+  __setNeighborFlags(RAIN, NEIGHBOR_FLAG_WATER);
+  __setNeighborFlags(PLANT, NEIGHBOR_FLAG_FLAME_KEEPER | NEIGHBOR_FLAG_HEAT_FUEL);
+  __setNeighborFlags(LEAF, NEIGHBOR_FLAG_FLAME_KEEPER | NEIGHBOR_FLAG_HEAT_FUEL);
+  __setNeighborFlags(BRANCH, NEIGHBOR_FLAG_FLAME_KEEPER | NEIGHBOR_FLAG_HEAT_FUEL);
+  __setNeighborFlags(OIL, NEIGHBOR_FLAG_FLAME_KEEPER | NEIGHBOR_FLAG_HEAT_FUEL);
+  __setNeighborFlags(FUSE, NEIGHBOR_FLAG_FLAME_KEEPER | NEIGHBOR_FLAG_HEAT_FUEL);
+  __setNeighborFlags(METHANE, NEIGHBOR_FLAG_HEAT_FUEL);
+  __setNeighborFlags(ZOMBIE, NEIGHBOR_FLAG_FLAME_KEEPER);
+
+  ELEMENT_HEAT_RESULT[__elementIndex(WATER)] = STEAM;
+  ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 16;
+  ELEMENT_HEAT_RESULT[__elementIndex(RAIN)] = STEAM;
+  ELEMENT_HEAT_CHANCE[__elementIndex(RAIN)] = 16;
+  ELEMENT_HEAT_RESULT[__elementIndex(CLOUD)] = STEAM;
+  ELEMENT_HEAT_CHANCE[__elementIndex(CLOUD)] = 10;
+  ELEMENT_HEAT_RESULT[__elementIndex(ICE)] = WATER;
+  ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 14;
+  ELEMENT_HEAT_RESULT[__elementIndex(CHILLED_ICE)] = ICE;
+  ELEMENT_HEAT_CHANCE[__elementIndex(CHILLED_ICE)] = 18;
+
+  ELEMENT_COLD_RESULT[__elementIndex(WATER)] = ICE;
+  ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 18;
+  ELEMENT_COLD_RESULT[__elementIndex(RAIN)] = ICE;
+  ELEMENT_COLD_CHANCE[__elementIndex(RAIN)] = 18;
+  ELEMENT_COLD_RESULT[__elementIndex(STEAM)] = CLOUD;
+  ELEMENT_COLD_CHANCE[__elementIndex(STEAM)] = 14;
+  ELEMENT_COLD_RESULT[__elementIndex(CLOUD)] = RAIN;
+  ELEMENT_COLD_CHANCE[__elementIndex(CLOUD)] = 10;
+  ELEMENT_COLD_RESULT[__elementIndex(ICE)] = CHILLED_ICE;
+  ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 14;
+  ELEMENT_COLD_RESULT[__elementIndex(LAVA)] = ROCK;
+  ELEMENT_COLD_CHANCE[__elementIndex(LAVA)] = 20;
+}
 
 function initElements() {
   if (NUM_ELEMENTS > 64)
@@ -247,6 +393,7 @@ function initElements() {
 
   for (var i = 0; i < elements.length; i++) {
     const color = elements[i];
+    ELEMENT_META_INDEX[elements[i] & 0x30303] = i;
     const color_idx =
       ((color & 0x30000) >>> 12) + ((color & 0x300) >>> 6) + (color & 0x3);
 
@@ -286,7 +433,56 @@ function initElements() {
   GAS_PERMEABLE[POLLEN] = null;
   GAS_PERMEABLE[CHARGED_NITRO] = null;
   GAS_PERMEABLE[ACID] = null;
+  initElementPhysics();
+  TILT_SETTLED_SKIP = new Uint8Array(MAX_IDX + 1);
   Object.freeze(GAS_PERMEABLE);
+}
+
+function __findNeighborByFlag(x, y, i, flag, adjacentOnly) {
+  const xStart = Math.max(x - 1, 0);
+  const yStart = Math.max(y - 1, 0);
+  const xEnd = Math.min(x + 2, MAX_X_IDX + 1);
+  const yEnd = Math.min(y + 2, MAX_Y_IDX + 1);
+  var xIter, yIter;
+  for (yIter = yStart; yIter !== yEnd; yIter++) {
+    const idxBase = yIter * width;
+    for (xIter = xStart; xIter !== xEnd; xIter++) {
+      if (yIter === y && xIter === x) continue;
+      if (adjacentOnly && xIter !== x && yIter !== y) continue;
+
+      const idx = idxBase + xIter;
+      const neighborFlags =
+        ELEMENT_NEIGHBOR_FLAGS[ELEMENT_META_INDEX[gameImagedata32[idx] & 0x30303]];
+      if ((neighborFlags & flag) !== 0) return idx;
+    }
+  }
+  return -1;
+}
+
+function __tryApplyHeatReaction(idx) {
+  const elem = gameImagedata32[idx];
+  const elemIdx = ELEMENT_META_INDEX[elem & 0x30303];
+  const heatChance = ELEMENT_HEAT_CHANCE[elemIdx];
+  if (heatChance !== 0 && random() < heatChance) {
+    gameImagedata32[idx] = ELEMENT_HEAT_RESULT[elemIdx];
+    return true;
+  }
+
+  if ((ELEMENT_NEIGHBOR_FLAGS[elemIdx] & NEIGHBOR_FLAG_HEAT_FUEL) !== 0 && random() < 14) {
+    gameImagedata32[idx] = FIRE;
+    return true;
+  }
+
+  return false;
+}
+
+function __tryApplyColdReaction(idx) {
+  const elem = gameImagedata32[idx];
+  const elemIdx = ELEMENT_META_INDEX[elem & 0x30303];
+  const coldChance = ELEMENT_COLD_CHANCE[elemIdx];
+  if (coldChance === 0 || random() >= coldChance) return false;
+  gameImagedata32[idx] = ELEMENT_COLD_RESULT[elemIdx];
+  return true;
 }
 
 /* ======================= Element action handlers ======================= */
@@ -299,13 +495,14 @@ function BACKGROUND_ACTION(x, y, i) {
 }
 
 function SAND_ACTION(x, y, i) {
+  if (__consumeTiltSettledSkip(i)) return;
   /* Optimize for common case; can't sink through sand */
-  if (y !== MAX_Y_IDX && uniformBelowAdjacent(x, y, i) !== SAND) {
-    if (doDensitySink(x, y, i, WATER, true, 25)) return;
-    if (doDensitySink(x, y, i, SALT_WATER, true, 25)) return;
+  if (!__frameGravityIsBaseline || (y !== MAX_Y_IDX && uniformBelowAdjacent(x, y, i) !== SAND)) {
+    if (doDensitySinkByClass(x, y, i, true, 25)) return;
   }
 
   if (doGravity(x, y, i, true, 95)) return;
+  __markTiltSettledSkip(i);
 }
 
 function WATER_ACTION(x, y, i) {
@@ -316,8 +513,10 @@ function WATER_ACTION(x, y, i) {
     }
   }
 
+  if (__consumeTiltSettledSkip(i)) return;
   if (doGravity(x, y, i, true, 95)) return;
-  if (doDensityLiquid(x, y, i, OIL, 25, 50)) return;
+  if (doDensityLiquidByClass(x, y, i, 25, 50)) return;
+  __markTiltSettledSkip(i);
 }
 
 function PLANT_ACTION(x, y, i) {
@@ -348,8 +547,7 @@ function PLANT_ACTION(x, y, i) {
 function FIRE_ACTION(x, y, i) {
   /* water */
   if (random() < 80) {
-    var waterLoc = bordering(x, y, i, WATER);
-    if (waterLoc === -1) waterLoc = bordering(x, y, i, SALT_WATER);
+    const waterLoc = __findNeighborByFlag(x, y, i, NEIGHBOR_FLAG_COOLANT, false);
     if (waterLoc !== -1) {
       /* A thermite fire is not extinguished by water */
       if (bordering(x, y, i, BURNING_THERMITE) === -1) {
@@ -361,7 +559,7 @@ function FIRE_ACTION(x, y, i) {
   }
 
   /* plant */
-  if (random() < 20) {
+  if (random() < 24) {
     const plantLoc = borderingAdjacent(x, y, i, PLANT);
     if (plantLoc !== -1) {
       gameImagedata32[plantLoc] = FIRE;
@@ -386,7 +584,7 @@ function FIRE_ACTION(x, y, i) {
   }
 
   /* fuse */
-  if (random() < 80) {
+  if (random() < 85) {
     const fuseLoc = borderingAdjacent(x, y, i, FUSE);
     if (fuseLoc !== -1) {
       gameImagedata32[fuseLoc] = FIRE;
@@ -413,13 +611,9 @@ function FIRE_ACTION(x, y, i) {
 
         if (borderingElem === FIRE) continue;
 
-        if (
-          borderingElem === PLANT ||
-          borderingElem === FUSE ||
-          borderingElem === BRANCH ||
-          borderingElem === LEAF ||
-          borderingElem === ZOMBIE
-        ) {
+        const flags = ELEMENT_NEIGHBOR_FLAGS[ELEMENT_META_INDEX[borderingElem & 0x30303]];
+
+        if (flags & NEIGHBOR_FLAG_FLAME_KEEPER) {
           flameOut = false;
           break;
         }
@@ -451,7 +645,7 @@ function FIRE_ACTION(x, y, i) {
   }
 
   /* rising fire */
-  if (random() < 50) {
+  if (random() < 55) {
     const riseLoc = findTiltRiseLoc(x, y, i);
     if (riseLoc !== -1) {
       gameImagedata32[riseLoc] = FIRE;
@@ -461,14 +655,18 @@ function FIRE_ACTION(x, y, i) {
 }
 
 function SALT_ACTION(x, y, i) {
+  if (__shouldUseTiltSettledSkip(SALT) && __consumeTiltSettledSkip(i)) return;
   if (doGravity(x, y, i, true, 95)) return;
   if (doTransform(x, y, i, WATER, SALT_WATER, 25, 50)) return;
   if (doDensitySink(x, y, i, SALT_WATER, true, 25)) return;
+  if (__shouldUseTiltSettledSkip(SALT)) __markTiltSettledSkip(i);
 }
 
 function SALT_WATER_ACTION(x, y, i) {
+  if (__consumeTiltSettledSkip(i)) return;
   if (doGravity(x, y, i, true, 95)) return;
-  if (doDensityLiquid(x, y, i, WATER, 50, 50)) return;
+  if (doDensityLiquidByClass(x, y, i, 50, 50)) return;
+  __markTiltSettledSkip(i);
 }
 
 function OIL_ACTION(x, y, i) {
@@ -479,7 +677,10 @@ function OIL_ACTION(x, y, i) {
     }
   }
 
+  if (__consumeTiltSettledSkip(i)) return;
   if (doGravity(x, y, i, true, 95)) return;
+  if (doDensityLiquidByClass(x, y, i, 25, 35)) return;
+  __markTiltSettledSkip(i);
 }
 
 function SPOUT_ACTION(x, y, i) {
@@ -491,7 +692,7 @@ function WELL_ACTION(x, y, i) {
 }
 
 function TORCH_ACTION(x, y, i) {
-  produceTiltFire(x, y, i, 25);
+  produceTiltFire(x, y, i, 30);
 }
 
 function GUNPOWDER_ACTION(x, y, i) {
@@ -830,7 +1031,7 @@ function ROCK_ACTION(x, y, i) {
 }
 
 function STEAM_ACTION(x, y, i) {
-  if (random() < 45) return;
+  if (random() < __tiltGasThrottleChance(45)) return;
 
   if (doDensityGas(x, y, i, 70)) return;
   if (doRise(x, y, i, 55, 35)) return;
@@ -875,7 +1076,7 @@ function STEAM_ACTION(x, y, i) {
 }
 
 function CLOUD_ACTION(x, y, i) {
-  if (random() < 55) return;
+  if (random() < __tiltGasThrottleChance(55)) return;
 
   if (doDensityGas(x, y, i, 45)) return;
   if (doRise(x, y, i, 20, 25)) return;
@@ -933,24 +1134,9 @@ function SUN_ACTION(x, y, i) {
       const idx = idxBase + xIter;
       if (idx === i) continue;
 
+      if (__tryApplyHeatReaction(idx)) continue;
       const elem = gameImagedata32[idx];
-      if ((elem === WATER || elem === RAIN) && random() < 12) {
-        gameImagedata32[idx] = STEAM;
-      } else if (
-        (elem === PLANT ||
-          elem === LEAF ||
-          elem === BRANCH ||
-          elem === OIL ||
-          elem === FUSE ||
-          elem === METHANE) &&
-        random() < 10
-      ) {
-        gameImagedata32[idx] = FIRE;
-      } else if (elem === CLOUD && random() < 8) {
-        gameImagedata32[idx] = STEAM;
-      } else if (elem === ICE && random() < 10) {
-        gameImagedata32[idx] = WATER;
-      } else if (elem === WET_SOIL && random() < 6 && borderingAdjacent(xIter, yIter, idx, WATER) === -1) {
+      if (elem === WET_SOIL && random() < 8 && __findNeighborByFlag(xIter, yIter, idx, NEIGHBOR_FLAG_WATER, true) === -1) {
         gameImagedata32[idx] = SOIL;
       }
     }
@@ -993,7 +1179,7 @@ function ANTI_GRAVITY_ACTION(x, y, i) {
 }
 
 function CRYO_ACTION(x, y, i) {
-  if (random() < 80) return;
+  if (random() < 88) return;
 
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);
@@ -1010,15 +1196,7 @@ function CRYO_ACTION(x, y, i) {
 
       if (borderingElem === CRYO || borderingElem === BLACK_HOLE) continue;
 
-      if ((borderingElem === WATER || borderingElem === RAIN) && random() < 18) {
-        gameImagedata32[idx] = ICE;
-      } else if (borderingElem === STEAM && random() < 12) {
-        gameImagedata32[idx] = CLOUD;
-      } else if (borderingElem === CLOUD && random() < 8) {
-        gameImagedata32[idx] = RAIN;
-      } else if (borderingElem === LAVA && random() < 18) {
-        gameImagedata32[idx] = ROCK;
-      }
+      __tryApplyColdReaction(idx);
     }
   }
 }
@@ -1095,11 +1273,11 @@ function MYSTERY_ACTION(x, y, i) {
 }
 
 function METHANE_ACTION(x, y, i) {
-  if (random() < 55) return;
+  if (random() < __tiltGasThrottleChance(55)) return;
 
   if (
     random() < 25 &&
-    (bordering(x, y, i, FIRE) !== -1 || bordering(x, y, i, SUN) !== -1)
+    __findNeighborByFlag(x, y, i, NEIGHBOR_FLAG_HOT_SOURCE, false) !== -1
   ) {
     gameImagedata32[i] = FIRE;
     return;
@@ -1849,6 +2027,8 @@ var __frameGravityFlatLen = 0;
 var __frameGravityMinorShare = 0;
 var __frameGravityMirrorX = false;
 var __frameGravityMirrorY = false;
+var __frameGravityVectorX = 0;
+var __frameGravityVectorY = 1;
 
 function __buildFlatOffsets(offsets, invert) {
   const n = offsets.length;
@@ -1918,6 +2098,8 @@ function syncFrameGravity() {
     __frameGravityMinorShare = 0;
     __frameGravityMirrorX = false;
     __frameGravityMirrorY = false;
+    __frameGravityVectorX = 0;
+    __frameGravityVectorY = 1;
     __frameGravityChanceScale = 1;
     __frameGravityIsBaseline = true;
     return;
@@ -1925,6 +2107,9 @@ function syncFrameGravity() {
   __frameGravityIsBaseline = false;
   __frameGravityChanceScale = Math.max(0, Math.min(1, gravityState.strength));
   const bucketIdx = gravityState.bucket;
+  const bucketVector = TILT_BUCKET_VECTORS_32[bucketIdx];
+  __frameGravityVectorX = bucketVector[0];
+  __frameGravityVectorY = bucketVector[1];
   if (mode === "bucket16")
     __frameGravityOffsets = GRAVITY_BUCKET_OFFSETS_16[bucketIdx];
   else if (mode === "bucket32")
@@ -2024,7 +2209,14 @@ function findTiltRiseLoc(x, y, i) {
   return above(y, i, BACKGROUND);
 }
 
+function __canGasPassInto(gasElem, targetElem) {
+  if (targetElem === gasElem) return false;
+  if (targetElem === STEAM || targetElem === CLOUD || targetElem === METHANE) return true;
+  return gasPermeable(targetElem);
+}
+
 function findTiltGasLoc(x, y, i) {
+  const gasElem = gameImagedata32[i];
   if (__frameGravityInverseFlat !== null) {
     var flat = __frameGravityInverseFlat;
     if (gravityExperimentMode === "family32") {
@@ -2041,7 +2233,7 @@ function findTiltGasLoc(x, y, i) {
     for (var j = 0; j < __frameGravityFlatLen; j += 5) {
       if (x >= flat[j + 1] && x <= flat[j + 2] && y >= flat[j + 3] && y <= flat[j + 4]) {
         const nextI = i + flat[j];
-        if (gasPermeable(gameImagedata32[nextI])) return nextI;
+        if (__canGasPassInto(gasElem, gameImagedata32[nextI])) return nextI;
       }
     }
   }
@@ -2071,6 +2263,8 @@ function doGravityBaseline(x, y, i, fallAdjacent, chance) {
   if (newI === -1 && fallAdjacent) newI = adjacent(x, i, BACKGROUND);
 
   if (newI !== -1) {
+    __clearTiltSettledSkip(newI);
+    __clearTiltSettledSkip(i);
     gameImagedata32[newI] = gameImagedata32[i];
     gameImagedata32[i] = BACKGROUND;
     return true;
@@ -2087,6 +2281,8 @@ function doGravity(x, y, i, fallAdjacent, chance) {
   if (__frameGravityFlat !== null) {
     const experimentalMove = __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, BACKGROUND);
     if (experimentalMove !== -1) {
+      __clearTiltSettledSkip(experimentalMove);
+      __clearTiltSettledSkip(i);
       gameImagedata32[experimentalMove] = gameImagedata32[i];
       gameImagedata32[i] = BACKGROUND;
       return true;
@@ -2107,6 +2303,8 @@ function doGravity(x, y, i, fallAdjacent, chance) {
   if (newI === -1 && fallAdjacent) newI = adjacent(x, i, BACKGROUND);
 
   if (newI !== -1) {
+    __clearTiltSettledSkip(newI);
+    __clearTiltSettledSkip(i);
     gameImagedata32[newI] = gameImagedata32[i];
     gameImagedata32[i] = BACKGROUND;
     return true;
@@ -2131,6 +2329,8 @@ function doRiseBaseline(x, y, i, riseChance, adjacentChance) {
     newI = adjacent(x, i, BACKGROUND);
 
   if (newI !== -1) {
+    __clearTiltSettledSkip(newI);
+    __clearTiltSettledSkip(i);
     gameImagedata32[newI] = gameImagedata32[i];
     gameImagedata32[i] = BACKGROUND;
     return true;
@@ -2149,6 +2349,8 @@ function doRiseBaseline(x, y, i, riseChance, adjacentChance) {
 function doRise(x, y, i, riseChance, adjacentChance) {
   if (__frameGravityIsBaseline)
     return doRiseBaseline(x, y, i, riseChance, adjacentChance);
+  if (!__frameGravityIsBaseline && gravityExperimentMode === "family32" && __frameGravityVectorY === 0)
+    return false;
   var newI = -1;
   const scaledRiseChance = scaleGravityChance(riseChance);
   const scaledAdjacentChance = scaleGravityChance(adjacentChance);
@@ -2212,6 +2414,114 @@ function doDensitySink(x, y, i, heavierThan, sinkAdjacent, chance) {
   return true;
 }
 
+function __canSinkByClass(elem, targetElem) {
+  if (targetElem === BACKGROUND) return false;
+  const elemIdx = ELEMENT_META_INDEX[elem & 0x30303];
+  const targetIdx = ELEMENT_META_INDEX[targetElem & 0x30303];
+  const elemState = ELEMENT_STATE_CLASS[elemIdx];
+  const targetState = ELEMENT_STATE_CLASS[targetIdx];
+  if (elemState !== STATE_CLASS_POWDER) return false;
+  if (targetState !== STATE_CLASS_LIQUID && targetState !== STATE_CLASS_GAS) return false;
+  return ELEMENT_DENSITY[elemIdx] > ELEMENT_DENSITY[targetIdx];
+}
+
+function __canLiquidDisplaceByClass(elem, targetElem) {
+  if (targetElem === BACKGROUND) return false;
+  const elemIdx = ELEMENT_META_INDEX[elem & 0x30303];
+  const targetIdx = ELEMENT_META_INDEX[targetElem & 0x30303];
+  const elemState = ELEMENT_STATE_CLASS[elemIdx];
+  const targetState = ELEMENT_STATE_CLASS[targetIdx];
+  if (elemState !== STATE_CLASS_LIQUID) return false;
+  if (targetState !== STATE_CLASS_LIQUID && targetState !== STATE_CLASS_GAS) return false;
+  return ELEMENT_DENSITY[elemIdx] > ELEMENT_DENSITY[targetIdx];
+}
+
+function __pickDensitySinkTarget(x, y, i) {
+  if (y === MAX_Y_IDX) return -1;
+  const elem = gameImagedata32[i];
+  const belowSpot = i + width;
+  const belowElem = gameImagedata32[belowSpot];
+  if (__canSinkByClass(elem, belowElem)) return belowSpot;
+
+  const belowLeftSpot = belowSpot - 1;
+  const belowLeftMatch =
+    x !== 0 && __canSinkByClass(elem, gameImagedata32[belowLeftSpot]) ? belowLeftSpot : -1;
+  const belowRightSpot = belowSpot + 1;
+  const belowRightMatch =
+    x !== MAX_X_IDX && __canSinkByClass(elem, gameImagedata32[belowRightSpot]) ? belowRightSpot : -1;
+
+  return __pickRandValid(belowLeftMatch, belowRightMatch);
+}
+
+function __findDensityFlatMove(x, y, i, flat, flatAlt, flatLen, canDisplace) {
+  if (flat === null) return -1;
+
+  var candidateOffsets = flat;
+  if (gravityExperimentMode === "family32") {
+    const phase = __family32Phase(x, y);
+    if (phase < __frameGravityMinorShare && flatAlt !== null) candidateOffsets = flatAlt;
+  } else {
+    const lineJitter = ((x >> 2) + y) & 3;
+    const jitter = (x + y * 3 + lineJitter) & 3;
+    if (jitter === 1 && flatAlt !== null) candidateOffsets = flatAlt;
+    else if (jitter === 2 && __frameGravityFlatAlt2 !== null) candidateOffsets = __frameGravityFlatAlt2;
+    else if (jitter === 3 && __frameGravityFlatAlt3 !== null) candidateOffsets = __frameGravityFlatAlt3;
+  }
+
+  const elem = gameImagedata32[i];
+  const f = candidateOffsets;
+  for (var j = 0; j < flatLen; j += 5) {
+    if (x >= f[j + 1] && x <= f[j + 2] && y >= f[j + 3] && y <= f[j + 4]) {
+      const nextI = i + f[j];
+      if (canDisplace(elem, gameImagedata32[nextI])) return nextI;
+    }
+  }
+
+  return -1;
+}
+
+function doDensitySinkByClass(x, y, i, sinkAdjacent, chance) {
+  if (__frameGravityIsBaseline) {
+    if (random() >= chance) return false;
+    if (y === MAX_Y_IDX) return false;
+
+    var baselineI = -1;
+    if (sinkAdjacent) baselineI = __pickDensitySinkTarget(x, y, i);
+    else {
+      const belowSpot = i + width;
+      if (__canSinkByClass(gameImagedata32[i], gameImagedata32[belowSpot])) baselineI = belowSpot;
+    }
+
+    if (baselineI === -1) return false;
+    const baselineDisplaced = gameImagedata32[baselineI];
+    gameImagedata32[baselineI] = gameImagedata32[i];
+    gameImagedata32[i] = baselineDisplaced;
+    return true;
+  }
+
+  if (random() >= scaleGravityChance(chance)) return false;
+
+  const flatLen = sinkAdjacent ? __frameGravityFlatLen : Math.min(5, __frameGravityFlatLen);
+  const altFlat = sinkAdjacent ? __frameGravityFlatAlt : null;
+  const newI = __findDensityFlatMove(
+    x,
+    y,
+    i,
+    __frameGravityFlat,
+    altFlat,
+    flatLen,
+    __canSinkByClass
+  );
+
+  if (newI === -1) return false;
+  const displaced = gameImagedata32[newI];
+  __clearTiltSettledSkip(newI);
+  __clearTiltSettledSkip(i);
+  gameImagedata32[newI] = gameImagedata32[i];
+  gameImagedata32[i] = displaced;
+  return true;
+}
+
 /* Sink the current liquid element if it is on top of heavierThan */
 function doDensityLiquidBaseline(x, y, i, heavierThan, sinkChance, equalizeChance) {
   var newI = -1;
@@ -2242,6 +2552,78 @@ function doDensityLiquid(x, y, i, heavierThan, sinkChance, equalizeChance) {
 
   gameImagedata32[newI] = gameImagedata32[i];
   gameImagedata32[i] = heavierThan;
+  return true;
+}
+
+function __pickDensityLiquidTarget(x, y, i) {
+  if (y === MAX_Y_IDX) return -1;
+  const elem = gameImagedata32[i];
+  const belowSpot = i + width;
+  const belowElem = gameImagedata32[belowSpot];
+  if (__canLiquidDisplaceByClass(elem, belowElem)) return belowSpot;
+
+  const belowLeftSpot = belowSpot - 1;
+  const belowLeftMatch =
+    x !== 0 && __canLiquidDisplaceByClass(elem, gameImagedata32[belowLeftSpot]) ? belowLeftSpot : -1;
+  const belowRightSpot = belowSpot + 1;
+  const belowRightMatch =
+    x !== MAX_X_IDX && __canLiquidDisplaceByClass(elem, gameImagedata32[belowRightSpot]) ? belowRightSpot : -1;
+
+  return __pickRandValid(belowLeftMatch, belowRightMatch);
+}
+
+function __pickAdjacentLiquidTarget(x, i) {
+  const elem = gameImagedata32[i];
+  const leftSpot = i - 1;
+  const rightSpot = i + 1;
+  const leftMatch =
+    x !== 0 && __canLiquidDisplaceByClass(elem, gameImagedata32[leftSpot]) ? leftSpot : -1;
+  const rightMatch =
+    x !== MAX_X_IDX && __canLiquidDisplaceByClass(elem, gameImagedata32[rightSpot]) ? rightSpot : -1;
+  return __pickRandValid(leftMatch, rightMatch);
+}
+
+function doDensityLiquidByClass(x, y, i, sinkChance, equalizeChance) {
+  var newI = -1;
+
+  if (__frameGravityIsBaseline) {
+    if (random() < sinkChance) newI = __pickDensityLiquidTarget(x, y, i);
+
+    if (newI === -1 && random() < equalizeChance)
+      newI = __pickAdjacentLiquidTarget(x, i);
+  } else {
+    if (random() < scaleGravityChance(sinkChance)) {
+      newI = __findDensityFlatMove(
+        x,
+        y,
+        i,
+        __frameGravityFlat,
+        __frameGravityFlatAlt,
+        __frameGravityFlatLen,
+        __canLiquidDisplaceByClass
+      );
+    }
+
+    if (newI === -1 && random() < scaleGravityChance(equalizeChance)) {
+      const flowFlat = __frameGravityFlatAlt !== null ? __frameGravityFlatAlt : __frameGravityFlat;
+      newI = __findDensityFlatMove(
+        x,
+        y,
+        i,
+        flowFlat,
+        null,
+        __frameGravityFlatLen,
+        __canLiquidDisplaceByClass
+      );
+    }
+  }
+
+  if (newI === -1) return false;
+  const displaced = gameImagedata32[newI];
+  __clearTiltSettledSkip(newI);
+  __clearTiltSettledSkip(i);
+  gameImagedata32[newI] = gameImagedata32[i];
+  gameImagedata32[i] = displaced;
   return true;
 }
 
@@ -2419,7 +2801,7 @@ function doDensityGasVertical(x, y, i) {
   const aboveLeft = aboveSpot - 1;
   const aboveRight = aboveSpot + 1;
   const aboveElem = gameImagedata32[aboveSpot];
-  if (gasPermeable(aboveElem)) swapSpot = aboveSpot;
+  if (__canGasPassInto(gasElem, aboveElem)) swapSpot = aboveSpot;
   else {
     const aboveLeft = aboveSpot - 1;
     const aboveRight = aboveSpot + 1;
@@ -2433,13 +2815,13 @@ function doDensityGasVertical(x, y, i) {
      * number of dictionary lookups performed.
      */
 
-    if (aboveLeftElem !== aboveElem && gasPermeable(aboveLeftElem))
+    if (aboveLeftElem !== aboveElem && __canGasPassInto(gasElem, aboveLeftElem))
       swapAboveLeft = aboveLeft;
 
     if (aboveRightElem !== aboveElem) {
       if (swapAboveLeft !== -1 && aboveLeftElem === aboveRightElem)
         swapAboveRight = aboveRight;
-      else if (gasPermeable(aboveRightElem)) swapAboveRight = aboveRight;
+      else if (__canGasPassInto(gasElem, aboveRightElem)) swapAboveRight = aboveRight;
     }
 
     swapSpot = __pickRandValid(swapAboveLeft, swapAboveRight);
@@ -2451,11 +2833,11 @@ function doDensityGasVertical(x, y, i) {
    */
   if (swapSpot === -1 && x !== 0 && x !== MAX_X_IDX && y !== MAX_Y_IDX) {
     const leftElem = gameImagedata32[i - 1];
-    if (gasPermeable(leftElem) && gameImagedata32[i - 1 + width] !== gasElem) {
+    if (__canGasPassInto(gasElem, leftElem) && gameImagedata32[i - 1 + width] !== gasElem) {
       swapSpot = i - 1;
     } else {
       const rightElem = gameImagedata32[i + 1];
-      if (gasPermeable(rightElem) && gameImagedata32[i + 1 + width] !== gasElem)
+      if (__canGasPassInto(gasElem, rightElem) && gameImagedata32[i + 1 + width] !== gasElem)
         swapSpot = i + 1;
     }
   }

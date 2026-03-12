@@ -345,6 +345,7 @@ class Cursor {
     if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
       window.projectAmberPlatform.haptics.draw();
     }
+    if (typeof resetActiveBands === "function") resetActiveBands();
   }
 }
 

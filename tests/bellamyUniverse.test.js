@@ -185,11 +185,9 @@ function testWeatherStateAndForceFamilies() {
   assert(
     sunActionMatch[1].includes("if (random() < 80) return;") &&
     !sunActionMatch[1].includes("addTemperatureAt(") &&
-    sunActionMatch[1].includes("elem === PLANT") &&
-    sunActionMatch[1].includes("elem === OIL") &&
-    sunActionMatch[1].includes("elem === METHANE") &&
-    sunActionMatch[1].includes("gameImagedata32[idx] = FIRE;"),
-    "SUN_ACTION should use direct local heating rules without a separate temperature field"
+    sunActionMatch[1].includes("__tryApplyHeatReaction(idx)") &&
+    sunActionMatch[1].includes("gameImagedata32[idx] = SOIL;"),
+    "SUN_ACTION should use compact local heating rules without a separate temperature field"
   );
 }
 
@@ -230,9 +228,9 @@ function testMethaneStaysLocalAndCheap() {
 
   assert(methaneActionMatch, "elements.js should contain METHANE_ACTION body");
   assert(
-    methaneActionMatch[1].includes("if (random() < 55) return;") &&
-    methaneActionMatch[1].includes("bordering(x, y, i, SUN) !== -1"),
-    "METHANE_ACTION should stay sparse and let SUN ignite methane directly"
+    methaneActionMatch[1].includes("if (random() < __tiltGasThrottleChance(55)) return;") &&
+    methaneActionMatch[1].includes("__findNeighborByFlag(x, y, i, NEIGHBOR_FLAG_HOT_SOURCE, false) !== -1"),
+    "METHANE_ACTION should stay sparse and let nearby hot elements ignite methane directly"
   );
 
   assert(
@@ -273,13 +271,13 @@ function testForceAndGrowthSystemsAreThrottled() {
   assert(
     sunActionMatch[1].includes("if (random() < 80) return;") &&
     antiGravityActionMatch[1].includes("if (random() < 80) return;") &&
-    cryoActionMatch[1].includes("if (random() < 80) return;"),
+    cryoActionMatch[1].includes("if (random() < 88) return;"),
     "force tools should skip most frames in performance-first mode"
   );
 
   assert(
-    steamActionMatch[1].includes("if (random() < 45) return;") &&
-    cloudActionMatch[1].includes("if (random() < 55) return;"),
+    steamActionMatch[1].includes("__tiltGasThrottleChance(45)") &&
+    cloudActionMatch[1].includes("__tiltGasThrottleChance(55)"),
     "gas elements should skip many frames in performance-first mode"
   );
 
@@ -535,7 +533,7 @@ function testTiltGravityCandidatesStayLocal() {
   const torchActionMatch = elementsSource.match(/function TORCH_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   assert(torchActionMatch, "elements.js should contain TORCH_ACTION body");
   assert(
-    torchActionMatch[1].includes("produceTiltFire(x, y, i, 25)") &&
+    torchActionMatch[1].includes("produceTiltFire(x, y, i, 30)") &&
     !torchActionMatch[1].includes("doProducer(x, y, i, FIRE, true, 25)"),
     "TORCH_ACTION should produce fire in the tilt-aware rise direction"
   );
@@ -638,6 +636,487 @@ function testPlatformSeamAndHapticsExist() {
   );
 }
 
+function testDensityTablesExist() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("const STATE_CLASS_EMPTY = 0;") &&
+    elementsSource.includes("const STATE_CLASS_POWDER = 2;") &&
+    elementsSource.includes("const STATE_CLASS_LIQUID = 3;") &&
+    elementsSource.includes("const STATE_CLASS_GAS = 4;"),
+    "elements.js should define small integer state classes for the fast pixel engine"
+  );
+
+  assert(
+    elementsSource.includes("const ELEMENT_STATE_CLASS = new Uint8Array(64);") &&
+    elementsSource.includes("const ELEMENT_DENSITY = new Uint8Array(64);") &&
+    elementsSource.includes("function __setElementPhysics(elem, stateClass, density) {"),
+    "elements.js should store state and density as compact lookup tables keyed by element index"
+  );
+
+  assert(
+    elementsSource.includes("__setElementPhysics(WATER, STATE_CLASS_LIQUID, 3);") &&
+    elementsSource.includes("__setElementPhysics(SALT_WATER, STATE_CLASS_LIQUID, 4);") &&
+    elementsSource.includes("__setElementPhysics(OIL, STATE_CLASS_LIQUID, 2);") &&
+    elementsSource.includes("__setElementPhysics(SAND, STATE_CLASS_POWDER, 5);") &&
+    elementsSource.includes("__setElementPhysics(ROCK, STATE_CLASS_POWDER, 6);") &&
+    elementsSource.includes("__setElementPhysics(STEAM, STATE_CLASS_GAS, 1);"),
+    "elements.js should assign simple density ranks to key materials"
+  );
+}
+
+function testGenericDensityHelpersExist() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("function doDensitySinkByClass(x, y, i, sinkAdjacent, chance) {") &&
+    elementsSource.includes("function doDensityLiquidByClass(x, y, i, sinkChance, equalizeChance) {"),
+    "elements.js should expose generic density helpers for powders and liquids"
+  );
+
+  const sandActionMatch = elementsSource.match(/function SAND_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const waterActionMatch = elementsSource.match(/function WATER_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const saltWaterActionMatch = elementsSource.match(/function SALT_WATER_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const oilActionMatch = elementsSource.match(/function OIL_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(sandActionMatch, "elements.js should contain SAND_ACTION body");
+  assert(waterActionMatch, "elements.js should contain WATER_ACTION body");
+  assert(saltWaterActionMatch, "elements.js should contain SALT_WATER_ACTION body");
+  assert(oilActionMatch, "elements.js should contain OIL_ACTION body");
+
+  assert(
+    sandActionMatch[1].includes("doDensitySinkByClass(x, y, i, true, 25)") &&
+    !sandActionMatch[1].includes("doDensitySink(x, y, i, WATER, true, 25)") &&
+    !sandActionMatch[1].includes("doDensitySink(x, y, i, SALT_WATER, true, 25)"),
+    "SAND_ACTION should use the generic density helper instead of explicit water pair rules"
+  );
+
+  assert(
+    waterActionMatch[1].includes("doDensityLiquidByClass(x, y, i, 25, 50)") &&
+    saltWaterActionMatch[1].includes("doDensityLiquidByClass(x, y, i, 50, 50)") &&
+    oilActionMatch[1].includes("doDensityLiquidByClass(x, y, i, 25, 35)"),
+    "liquid actions should use the generic density helper for density-based layering"
+  );
+}
+
+function testTiltDensityHelpersUseGravityPrimitives() {
+  const elementsSource = read("scripts/elements.js");
+  const sinkByClassMatch = elementsSource.match(/function doDensitySinkByClass\(x, y, i, sinkAdjacent, chance\) \{([\s\S]*?)\n\}/);
+  const liquidByClassMatch = elementsSource.match(/function doDensityLiquidByClass\(x, y, i, sinkChance, equalizeChance\) \{([\s\S]*?)\n\}/);
+
+  assert(
+    elementsSource.includes("function __findDensityFlatMove("),
+    "elements.js should define a gravity-relative density move helper for tilt"
+  );
+
+  assert(sinkByClassMatch, "elements.js should contain doDensitySinkByClass body");
+  assert(liquidByClassMatch, "elements.js should contain doDensityLiquidByClass body");
+
+  assert(
+    sinkByClassMatch[1].includes("__findDensityFlatMove("),
+    "doDensitySinkByClass should use gravity-relative tilt candidates instead of fixed screen-down checks"
+  );
+
+  assert(
+    liquidByClassMatch[1].includes("__findDensityFlatMove("),
+    "doDensityLiquidByClass should use gravity-relative tilt candidates instead of fixed screen-down checks"
+  );
+}
+
+function testTiltSettledSkipExists() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("var TILT_SETTLED_SKIP = null;") &&
+    elementsSource.includes("function __consumeTiltSettledSkip(i) {") &&
+    elementsSource.includes("function __markTiltSettledSkip(i) {") &&
+    elementsSource.includes("function __clearTiltSettledSkip(i) {") &&
+    elementsSource.includes("TILT_SETTLED_SKIP = new Uint8Array(MAX_IDX + 1);"),
+    "elements.js should lazily allocate the tilt-only settled-skip buffer after game dimensions exist"
+  );
+
+  const sandActionMatch = elementsSource.match(/function SAND_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const waterActionMatch = elementsSource.match(/function WATER_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(sandActionMatch, "elements.js should contain SAND_ACTION body");
+  assert(waterActionMatch, "elements.js should contain WATER_ACTION body");
+
+  assert(
+    sandActionMatch[1].includes("__consumeTiltSettledSkip(i)") &&
+    sandActionMatch[1].includes("__markTiltSettledSkip(i);"),
+    "SAND_ACTION should skip a few tilt frames when locally settled"
+  );
+
+  assert(
+    waterActionMatch[1].includes("__consumeTiltSettledSkip(i)") &&
+    waterActionMatch[1].includes("__markTiltSettledSkip(i);"),
+    "WATER_ACTION should skip a few tilt frames when locally settled"
+  );
+}
+
+function testTiltGasThrottleExists() {
+  const elementsSource = read("scripts/elements.js");
+  const steamActionMatch = elementsSource.match(/function STEAM_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const cloudActionMatch = elementsSource.match(/function CLOUD_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const methaneActionMatch = elementsSource.match(/function METHANE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(
+    elementsSource.includes("function __tiltGasThrottleChance(baseChance) {"),
+    "elements.js should define a tiny tilt-only gas throttle helper"
+  );
+
+  assert(
+    elementsSource.includes("return Math.min(95, baseChance + 8);"),
+    "tilt gas throttling should stay lighter so gas still crashes through under tilt"
+  );
+
+  assert(steamActionMatch, "elements.js should contain STEAM_ACTION body");
+  assert(cloudActionMatch, "elements.js should contain CLOUD_ACTION body");
+  assert(methaneActionMatch, "elements.js should contain METHANE_ACTION body");
+
+  assert(
+    steamActionMatch[1].includes("__tiltGasThrottleChance(45)") &&
+    cloudActionMatch[1].includes("__tiltGasThrottleChance(55)") &&
+    methaneActionMatch[1].includes("__tiltGasThrottleChance(55)"),
+    "hot gas actions should use the shared tilt gas throttle helper"
+  );
+}
+
+function testHotLoopUsesElementIndexLookup() {
+  const gameSource = read("scripts/game.js");
+
+  assert(
+    gameSource.includes("const ELEMENT_ACTION_INDEX = new Uint8Array(0x40000);") &&
+    gameSource.includes("function initElementActionIndex() {") &&
+    gameSource.includes("ELEMENT_ACTION_INDEX[elements[idx] & 0x30303] = idx;"),
+    "game.js should precompute a compact element-action lookup for the hot loop"
+  );
+
+  assert(
+    gameSource.includes("const elem_idx = ELEMENT_ACTION_INDEX[elem & 0x30303];"),
+    "game.js should use the masked compact lookup key instead of indexing by the full 32-bit color"
+  );
+}
+
+function testLocalReactionLookupTablesExist() {
+  const elementsSource = read("scripts/elements.js");
+  const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const cryoActionMatch = elementsSource.match(/function CRYO_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(
+    elementsSource.includes("const ELEMENT_NEIGHBOR_FLAGS = new Uint8Array(64);") &&
+    elementsSource.includes("const ELEMENT_HEAT_RESULT = new Uint32Array(64);") &&
+    elementsSource.includes("const ELEMENT_HEAT_CHANCE = new Uint8Array(64);") &&
+    elementsSource.includes("const ELEMENT_COLD_RESULT = new Uint32Array(64);") &&
+    elementsSource.includes("const ELEMENT_COLD_CHANCE = new Uint8Array(64);"),
+    "elements.js should precompute compact local reaction lookup tables"
+  );
+
+  assert(
+    elementsSource.includes("const NEIGHBOR_FLAG_HOT_SOURCE = 1;") &&
+    elementsSource.includes("const NEIGHBOR_FLAG_COOLANT = 2;") &&
+    elementsSource.includes("const NEIGHBOR_FLAG_WATER = 4;") &&
+    elementsSource.includes("const NEIGHBOR_FLAG_FLAME_KEEPER = 8;"),
+    "elements.js should define compact neighbor flags for hot local queries"
+  );
+
+  assert(
+    elementsSource.includes("ELEMENT_HEAT_RESULT[__elementIndex(WATER)] = STEAM;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 16;") &&
+    elementsSource.includes("ELEMENT_HEAT_RESULT[__elementIndex(ICE)] = WATER;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 14;") &&
+    elementsSource.includes("ELEMENT_COLD_RESULT[__elementIndex(WATER)] = ICE;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 18;") &&
+    elementsSource.includes("ELEMENT_COLD_RESULT[__elementIndex(ICE)] = CHILLED_ICE;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 14;"),
+    "elements.js should encode slightly stronger Sun/Cryo reactions in compact lookup tables"
+  );
+
+  assert(
+    elementsSource.includes("function __findNeighborByFlag(") &&
+    elementsSource.includes("function __tryApplyHeatReaction(idx) {") &&
+    elementsSource.includes("function __tryApplyColdReaction(idx) {"),
+    "elements.js should use local table-driven helpers for heat and cold reactions"
+  );
+
+  assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
+  assert(cryoActionMatch, "elements.js should contain CRYO_ACTION body");
+
+  assert(
+    sunActionMatch[1].includes("__tryApplyHeatReaction(idx)") &&
+    !sunActionMatch[1].includes("elem === WATER || elem === RAIN"),
+    "SUN_ACTION should use the compact heat lookup table instead of a long element chain"
+  );
+
+  assert(
+    cryoActionMatch[1].includes("__tryApplyColdReaction(idx)") &&
+    !cryoActionMatch[1].includes("borderingElem === WATER || borderingElem === RAIN"),
+    "CRYO_ACTION should use the compact cold lookup table instead of a long element chain"
+  );
+}
+
+function testHotAndColdActionsAreSlightlyStronger() {
+  const elementsSource = read("scripts/elements.js");
+  const torchActionMatch = elementsSource.match(/function TORCH_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const fireActionMatch = elementsSource.match(/function FIRE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const cryoActionMatch = elementsSource.match(/function CRYO_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(torchActionMatch, "elements.js should contain TORCH_ACTION body");
+  assert(fireActionMatch, "elements.js should contain FIRE_ACTION body");
+  assert(cryoActionMatch, "elements.js should contain CRYO_ACTION body");
+
+  assert(
+    torchActionMatch[1].includes("produceTiltFire(x, y, i, 30);"),
+    "TORCH_ACTION should emit a slightly hotter flame stream"
+  );
+
+  assert(
+    fireActionMatch[1].includes("if (random() < 24)") &&
+    fireActionMatch[1].includes("if (random() < 85)") &&
+    fireActionMatch[1].includes("if (random() < 55)"),
+    "FIRE_ACTION should be tuned slightly hotter without changing its local shape"
+  );
+
+  assert(
+    cryoActionMatch[1].includes("if (random() < 88) return;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 18;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(RAIN)] = 18;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(STEAM)] = 14;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(CLOUD)] = 10;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 14;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(LAVA)] = 20;"),
+    "CRYO should stay distinct, but softer than the previous over-aggressive cold tuning"
+  );
+}
+
+function testSettledSkipCoversCommonTiltMovers() {
+  const elementsSource = read("scripts/elements.js");
+  const saltActionMatch = elementsSource.match(/function SALT_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const rainActionMatch = elementsSource.match(/function RAIN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const soilActionMatch = elementsSource.match(/function SOIL_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(
+    elementsSource.includes("const ELEMENT_TILT_SETTLE = new Uint8Array(64);") &&
+    elementsSource.includes("function __shouldUseTiltSettledSkip(elem) {"),
+    "elements.js should define a compact tilt settled-skip lookup"
+  );
+
+  assert(
+    elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(SAND)] = 1;") &&
+    elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(SALT)] = 1;") &&
+    elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(WATER)] = 1;") &&
+    elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(SALT_WATER)] = 1;") &&
+    elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(OIL)] = 1;") &&
+    !elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(RAIN)] = 1;") &&
+    !elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(SOIL)] = 1;") &&
+    !elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(WET_SOIL)] = 1;") &&
+    !elementsSource.includes("ELEMENT_TILT_SETTLE[__elementIndex(ACID)] = 1;"),
+    "tilt settled-skip should stay limited to the highest-volume stable movers"
+  );
+
+  assert(saltActionMatch, "elements.js should contain SALT_ACTION body");
+  assert(rainActionMatch, "elements.js should contain RAIN_ACTION body");
+  assert(soilActionMatch, "elements.js should contain SOIL_ACTION body");
+
+  assert(
+    saltActionMatch[1].includes("__consumeTiltSettledSkip(i)") &&
+    saltActionMatch[1].includes("__markTiltSettledSkip(i);") &&
+    !rainActionMatch[1].includes("__consumeTiltSettledSkip(i)") &&
+    !rainActionMatch[1].includes("__markTiltSettledSkip(i);") &&
+    !soilActionMatch[1].includes("__consumeTiltSettledSkip(i)") &&
+    !soilActionMatch[1].includes("__markTiltSettledSkip(i);"),
+    "tilt settled-skip should avoid reactive transitional movers like rain and soil"
+  );
+}
+
+function testNeighborFlagLookupsReduceRepeatedQueries() {
+  const elementsSource = read("scripts/elements.js");
+  const fireActionMatch = elementsSource.match(/function FIRE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const methaneActionMatch = elementsSource.match(/function METHANE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const waterActionMatch = elementsSource.match(/function WATER_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(fireActionMatch, "elements.js should contain FIRE_ACTION body");
+  assert(methaneActionMatch, "elements.js should contain METHANE_ACTION body");
+  assert(waterActionMatch, "elements.js should contain WATER_ACTION body");
+
+  assert(
+    fireActionMatch[1].includes("__findNeighborByFlag(x, y, i, NEIGHBOR_FLAG_COOLANT, false)") &&
+    fireActionMatch[1].includes("flags & NEIGHBOR_FLAG_FLAME_KEEPER"),
+    "FIRE_ACTION should use local flag lookups instead of repeated neighbor equality checks"
+  );
+
+  assert(
+    methaneActionMatch[1].includes("__findNeighborByFlag(x, y, i, NEIGHBOR_FLAG_HOT_SOURCE, false) !== -1") &&
+    !methaneActionMatch[1].includes("bordering(x, y, i, FIRE) !== -1"),
+    "METHANE_ACTION should use the local hot-source flag lookup instead of three separate neighbor scans"
+  );
+
+  assert(
+    waterActionMatch[1].includes("bordering(x, y, i, SUN) !== -1") &&
+    !waterActionMatch[1].includes("__findNeighborByFlag("),
+    "WATER_ACTION should keep its simple local Sun check instead of adding a new generic neighbor scan"
+  );
+}
+
+function testGasPassesThroughDifferentGasLocally() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("function __canGasPassInto(gasElem, targetElem) {") &&
+    elementsSource.includes("if (targetElem === gasElem) return false;") &&
+    elementsSource.includes("if (targetElem === STEAM || targetElem === CLOUD || targetElem === METHANE) return true;"),
+    "elements.js should define a local gas-pass helper for different gas types"
+  );
+
+  assert(
+    elementsSource.includes("if (__canGasPassInto(gasElem, gameImagedata32[nextI])) return nextI;") &&
+    elementsSource.includes("if (__canGasPassInto(gasElem, aboveElem)) swapSpot = aboveSpot;"),
+    "gas movement helpers should use the local gas-pass helper instead of the older narrower gas check"
+  );
+}
+
+function testParticlesStayOnCanvasAndAvoidReadback() {
+  const particlesSource = read("scripts/particles.js");
+  const gameSource = read("scripts/game.js");
+
+  assert(
+    particlesSource.includes('const offscreenParticleCtx = offscreenParticleCanvas.getContext("2d", {') &&
+    particlesSource.includes("alpha: true"),
+    "particles.js should keep particles on a transparent offscreen canvas"
+  );
+
+  assert(
+    particlesSource.includes("offscreenParticleCtx.clearRect(0, 0, canvasWidth, canvasHeight);") &&
+    !particlesSource.includes("offscreenParticleCtx.getImageData("),
+    "updateParticles should clear and reuse the offscreen particle canvas without readback"
+  );
+
+  assert(
+    gameSource.includes("onscreenCtx.drawImage(offscreenParticleCanvas, 0, 0, width, height);"),
+    "draw should composite the particle canvas directly onto the onscreen canvas"
+  );
+}
+
+function testHudNodesAreCached() {
+  const menuSource = read("scripts/menu.js");
+
+  assert(
+    menuSource.includes("const fpsCounter = document.getElementById(\"fps-counter\")") &&
+    menuSource.includes("const zombieCountLabel = document.getElementById(\"zombieCount\")"),
+    "menu.js should cache HUD nodes instead of looking them up on every update"
+  );
+
+  assert(
+    menuSource.includes("fpsCounter.innerText = \"FPS: \" + fps;") &&
+    menuSource.includes("zombieCountLabel.innerText = val;") &&
+    !menuSource.includes("document.getElementById(\"fps-counter\").innerText") &&
+    !menuSource.includes("document.getElementById(\"zombieCount\").innerText"),
+    "HUD drawing helpers should reuse cached DOM nodes"
+  );
+}
+
+function testPerfCounterAvoidsShift() {
+  const gameSource = read("scripts/game.js");
+
+  assert(
+    gameSource.includes("var refreshTimesStart = 0;") &&
+    !gameSource.includes("refreshTimes.shift()"),
+    "game.js should avoid shift()-based FPS bookkeeping"
+  );
+
+  assert(
+    gameSource.includes("while (refreshTimesStart < refreshTimes.length && refreshTimes[refreshTimesStart] <= oneSecondAgo)") &&
+    gameSource.includes("drawFPSLabel(refreshTimes.length - refreshTimesStart);"),
+    "perfRecordFrame should use a rolling start index for FPS counting"
+  );
+}
+
+function testElementMetadataUsesCompactLookup() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("const ELEMENT_META_INDEX = new Uint8Array(0x40000);") &&
+    elementsSource.includes("ELEMENT_META_INDEX[elements[i] & 0x30303] = i;"),
+    "elements.js should precompute a compact metadata index lookup for hot element property reads"
+  );
+
+  assert(
+    elementsSource.includes("return ELEMENT_TILT_SETTLE[ELEMENT_META_INDEX[elem & 0x30303]] !== 0;") &&
+    elementsSource.includes("const idx = ELEMENT_META_INDEX[elem & 0x30303];"),
+    "hot metadata helpers should use the compact metadata lookup instead of recomputing __elementIndex(elem)"
+  );
+}
+
+function testHotLoopFastPathsExist() {
+  const gameSource = read("scripts/game.js");
+
+  assert(
+    gameSource.includes("if (elem === SAND) SAND_ACTION(") &&
+    gameSource.includes("else if (elem === WATER) WATER_ACTION(") &&
+    gameSource.includes("else if (elem === SALT_WATER) SALT_WATER_ACTION("),
+    "game.js should fast-path the most common movers before falling back to generic action dispatch"
+  );
+
+  assert(
+    !gameSource.includes("((elem & 0x30000) >>> 12) + ((elem & 0x300) >>> 6) + (elem & 0x3);"),
+    "game.js should stop manually recomputing element indices inside tilt update loops"
+  );
+}
+
+function testPureHorizontalTiltKeepsGasHorizontal() {
+  const elementsSource = read("scripts/elements.js");
+
+  assert(
+    elementsSource.includes("var __frameGravityVectorX = 0;") &&
+    elementsSource.includes("var __frameGravityVectorY = 1;"),
+    "elements.js should cache the active gravity vector components for tilt-sensitive helpers"
+  );
+
+  assert(
+    elementsSource.includes("if (!__frameGravityIsBaseline && gravityExperimentMode === \"family32\" && __frameGravityVectorY === 0)") &&
+    elementsSource.includes("return false;"),
+    "gas rise should not inject an upward component when the active tilt bucket is purely horizontal"
+  );
+}
+
+function testTiltActiveBandsExist() {
+  const gameSource = read("scripts/game.js");
+  const cursorSource = read("scripts/cursor.js");
+  const spigotsSource = read("scripts/spigots.js");
+
+  assert(
+    gameSource.includes("var activeRowMin = 0;") &&
+    gameSource.includes("var activeRowMax = MAX_Y_IDX;") &&
+    gameSource.includes("var activeColMin = 0;") &&
+    gameSource.includes("var activeColMax = MAX_X_IDX;") &&
+    gameSource.includes("function resetActiveBands() {") &&
+    gameSource.includes("function beginActiveBands() {") &&
+    gameSource.includes("function noteActiveBand(x, y) {") &&
+    gameSource.includes("function finishActiveBands() {"),
+    "game.js should define a rolling active-band tracker for tilt sweeps"
+  );
+
+  assert(
+    gameSource.includes("const rowStart = Math.max(0, activeRowMin);") &&
+    gameSource.includes("const rowStop = Math.min(MAX_Y_IDX, activeRowMax);") &&
+    gameSource.includes("const colStart = Math.max(0, activeColMin);") &&
+    gameSource.includes("const colStop = Math.min(MAX_X_IDX, activeColMax);"),
+    "family32 should clip row/column sweeps to the active tilt band"
+  );
+
+  assert(
+    gameSource.includes("noteActiveBand(X, y);") &&
+    gameSource.includes("noteActiveBand(x, Y);"),
+    "tilt sweeps should record the next active band while scanning"
+  );
+
+  assert(
+    cursorSource.includes("if (typeof resetActiveBands === \"function\") resetActiveBands();") &&
+    spigotsSource.includes("if (typeof resetActiveBands === \"function\") resetActiveBands();"),
+    "user strokes and spigots should reopen the active tilt band when they inject new pixels"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -654,5 +1133,23 @@ module.exports = {
   testTiltGravityExperimentSwitchExists,
   testTiltGravityCandidatesStayLocal,
   testTiltGravityBenchmarkNotesExist,
-  testPlatformSeamAndHapticsExist
+  testPlatformSeamAndHapticsExist,
+  testDensityTablesExist,
+  testGenericDensityHelpersExist,
+  testTiltDensityHelpersUseGravityPrimitives,
+  testTiltSettledSkipExists,
+  testTiltGasThrottleExists,
+  testHotLoopUsesElementIndexLookup,
+  testLocalReactionLookupTablesExist,
+  testHotAndColdActionsAreSlightlyStronger,
+  testSettledSkipCoversCommonTiltMovers,
+  testNeighborFlagLookupsReduceRepeatedQueries,
+  testGasPassesThroughDifferentGasLocally,
+  testParticlesStayOnCanvasAndAvoidReadback,
+  testHudNodesAreCached,
+  testPerfCounterAvoidsShift,
+  testElementMetadataUsesCompactLookup,
+  testHotLoopFastPathsExist,
+  testPureHorizontalTiltKeepsGasHorizontal,
+  testTiltActiveBandsExist
 };

@@ -40,7 +40,7 @@
 /* Offscreen canvas for drawing particles */
 const offscreenParticleCanvas = document.createElement("canvas");
 const offscreenParticleCtx = offscreenParticleCanvas.getContext("2d", {
-  alpha: false,
+  alpha: true,
 });
 
 /* These values index into __particleInit and __particleActions arrays */
@@ -823,16 +823,13 @@ function initParticles() {
 }
 
 function updateParticles() {
-  if (!particles.activeHead) return;
-
   const canvasWidth = offscreenParticleCanvas.width;
   const canvasHeight = offscreenParticleCanvas.height;
 
   /* reset the particle canvas */
-  offscreenParticleCtx.beginPath();
-  offscreenParticleCtx.fillStyle = "rgba(0, 0, 0, 1)";
-  offscreenParticleCtx.rect(0, 0, canvasWidth, canvasHeight);
-  offscreenParticleCtx.fill();
+  offscreenParticleCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+  if (!particles.activeHead) return;
 
   /* perform particle actions */
   var particle = particles.activeHead;
@@ -842,74 +839,5 @@ function updateParticles() {
     particle.actionIterations++;
     __particleActions[particle.type](particle);
     particle = next;
-  }
-
-  /* move particle draw state to main canvas */
-  const particleImageData = offscreenParticleCtx.getImageData(
-    0,
-    0,
-    canvasWidth,
-    canvasHeight
-  );
-  const particleImageData32 = new Uint32Array(particleImageData.data.buffer);
-  var x, y;
-  var __yOffset = 0;
-  const aliasingSearchDistance = 3;
-  for (y = 0; y !== canvasHeight; y++) {
-    const yOffset = __yOffset; /* optimization: make const copy */
-    for (x = 0; x !== canvasWidth; x++) {
-      const i = x + yOffset;
-      const particleColor = particleImageData32[i];
-
-      if (particleColor === 0xff000000) continue;
-
-      /*
-       * ImageData will container other colors due to anti-aliasing.
-       * However, we can only copy over valid colors to the main canvas.
-       *
-       * If the color appears to be invalid, it is likely right along the
-       * edge of a valid color. In this case, we can search nearby pixels
-       * for such a color.
-       *
-       * The motivation for this is that when many overlapping shapes are
-       * drawn on the canvas (ie. the various particles), the aliased border
-       * of each sub-object created gaps of invalid colors.
-       */
-      if (particleColor in PAINTABLE_PARTICLE_COLORS) {
-        gameImagedata32[i] = particleColor;
-        continue;
-      } else {
-        var searchColor;
-        if (x - aliasingSearchDistance >= 0) {
-          searchColor = particleImageData32[i - aliasingSearchDistance];
-          if (searchColor in PAINTABLE_PARTICLE_COLORS) {
-            gameImagedata32[i] = searchColor;
-            continue;
-          }
-        }
-        if (x + aliasingSearchDistance <= MAX_X_IDX) {
-          searchColor = particleImageData32[i + aliasingSearchDistance];
-          if (searchColor in PAINTABLE_PARTICLE_COLORS) {
-            gameImagedata32[i] = searchColor;
-            continue;
-          }
-        }
-        if (y - aliasingSearchDistance >= 0) {
-          searchColor = particleImageData32[i - aliasingSearchDistance * width];
-          if (searchColor in PAINTABLE_PARTICLE_COLORS) {
-            gameImagedata32[i] = searchColor;
-            continue;
-          }
-        }
-        if (y + aliasingSearchDistance <= MAX_Y_IDX) {
-          searchColor = particleImageData32[i + aliasingSearchDistance * width];
-          if (searchColor in PAINTABLE_PARTICLE_COLORS) {
-            gameImagedata32[i] = searchColor;
-            continue;
-          }
-        }
-      }
-    }
-    __yOffset += canvasWidth;
   }
 }
