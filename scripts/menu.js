@@ -325,7 +325,7 @@ function initMenu() {
     document.addEventListener("pointerdown", requestTiltMotionOnFirstGesture, { once: true, passive: true });
   }
 
-  const tiltDefaultEnabled = shouldEnableTiltByDefault();
+  const tiltDefaultEnabled = true;
   if (tiltDefaultEnabled) {
     window.setGravityExperimentMode("family32", gravityBucketIndex);
     armDefaultTiltMotionEnable();

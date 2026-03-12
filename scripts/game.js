@@ -61,7 +61,7 @@ var lastFPSLabelUpdate = 0;
 const refreshTimes = [];
 var refreshTimesStart = 0;
 const ELEMENT_ACTION_INDEX = new Uint8Array(0x40000);
-var gravityExperimentMode = "default";
+var gravityExperimentMode = "family32";
 var gravityBucketCount = 16;
 var gravityBucketIndex = 0;
 var gravityStrength = 1;
@@ -72,7 +72,7 @@ var tiltMotionVectorX = 0;
 var tiltMotionVectorY = 0;
 var tiltMotionVectorZ = 1;
 const gravityState = {
-  strategy: "baseline",
+  strategy: "family32",
   bucket: 0,
   family: 0,
   strength: 1
@@ -228,20 +228,20 @@ function resetActiveBands() {
   activeColMax = MAX_X_IDX;
 }
 
-function clearTiltBorderWalls() {
+function clearTiltBoundaryPixels() {
   var x;
   for (x = 0; x <= MAX_X_IDX; x++) {
-    if (gameImagedata32[x] === WALL) gameImagedata32[x] = BACKGROUND;
+    gameImagedata32[x] = BACKGROUND;
     const bottomIdx = x + MAX_Y_IDX * width;
-    if (gameImagedata32[bottomIdx] === WALL) gameImagedata32[bottomIdx] = BACKGROUND;
+    gameImagedata32[bottomIdx] = BACKGROUND;
   }
 
   var y;
   for (y = 0; y <= MAX_Y_IDX; y++) {
     const leftIdx = y * width;
-    if (gameImagedata32[leftIdx] === WALL) gameImagedata32[leftIdx] = BACKGROUND;
+    gameImagedata32[leftIdx] = BACKGROUND;
     const rightIdx = leftIdx + MAX_X_IDX;
-    if (gameImagedata32[rightIdx] === WALL) gameImagedata32[rightIdx] = BACKGROUND;
+    gameImagedata32[rightIdx] = BACKGROUND;
   }
 }
 
@@ -282,7 +282,7 @@ function syncGravityState() {
   gravityState.bucket = bucket;
   gravityState.family = Math.floor((bucket * 8) / bucketCount) & 7;
   gravityState.strength = gravityStrength;
-  if (gravityState.strategy === "family32") clearTiltBorderWalls();
+  if (gravityState.strategy === "family32") clearTiltBoundaryPixels();
 }
 
 function syncTiltModeCheckbox() {
@@ -550,6 +550,7 @@ function updateGame() {
   updateParticles();
 
   if (gravityState.strategy === "family32") {
+    clearTiltBoundaryPixels();
     updateGameFamily32();
     perfRecordFrame();
     frameDebt--;

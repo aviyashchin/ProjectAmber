@@ -313,10 +313,10 @@ function testTiltGravityExperimentSwitchExists() {
   const stylesSource = read("styles.css");
 
   assert(
-    gameSource.includes("var gravityExperimentMode = \"default\";") &&
+    gameSource.includes("var gravityExperimentMode = \"family32\";") &&
     gameSource.includes("var gravityBucketCount = 16;") &&
     gameSource.includes("const gravityState = {") &&
-    gameSource.includes("strategy: \"baseline\"") &&
+    gameSource.includes("strategy: \"family32\"") &&
     gameSource.includes("const TILT_BUCKET_VECTORS_32 = Object.freeze([") &&
     gameSource.includes("window.enableTiltMotionControls = enableTiltMotionControls;") &&
     gameSource.includes("function handleTiltOrientation(event) {") &&
@@ -360,14 +360,14 @@ function testTiltGravityExperimentSwitchExists() {
     menuSource.includes("const tiltStrengthSlider = document.getElementById(\"tiltStrengthSlider\")") &&
     menuSource.includes("const tiltBucketValue = document.getElementById(\"tiltBucketValue\")") &&
     menuSource.includes("const tiltStrengthValue = document.getElementById(\"tiltStrengthValue\")") &&
-    menuSource.includes("function shouldEnableTiltByDefault() {") &&
-    menuSource.includes("function enableTiltMotionInBackground() {") &&
-    menuSource.includes("function armDefaultTiltMotionEnable() {") &&
-    menuSource.includes("window.projectAmberPlatform.device.enableTilt()") &&
-    !menuSource.includes("await window.projectAmberPlatform.device.enableTilt()") &&
-    menuSource.includes("const tiltDefaultEnabled = shouldEnableTiltByDefault();") &&
-    menuSource.includes("if (tiltDefaultEnabled) {") &&
-    menuSource.includes("window.setGravityExperimentMode(\"family32\", gravityBucketIndex);") &&
+      menuSource.includes("function shouldEnableTiltByDefault() {") &&
+      menuSource.includes("function enableTiltMotionInBackground() {") &&
+      menuSource.includes("function armDefaultTiltMotionEnable() {") &&
+      menuSource.includes("window.projectAmberPlatform.device.enableTilt()") &&
+      !menuSource.includes("await window.projectAmberPlatform.device.enableTilt()") &&
+      menuSource.includes("const tiltDefaultEnabled = true;") &&
+      menuSource.includes("if (tiltDefaultEnabled) {") &&
+      menuSource.includes("window.setGravityExperimentMode(\"family32\", gravityBucketIndex);") &&
     menuSource.includes("armDefaultTiltMotionEnable();") &&
     menuSource.includes("document.addEventListener(\"pointerdown\", requestTiltMotionOnFirstGesture, { once: true, passive: true });") &&
     menuSource.includes("document.getElementById(\"tiltSceneSandButton\")") &&
@@ -1150,9 +1150,9 @@ function testTiltActiveBandsExist() {
   );
 
   assert(
-    gameSource.includes("function clearTiltBorderWalls() {") &&
-    gameSource.includes("if (gravityState.strategy === \"family32\") clearTiltBorderWalls();"),
-    "tilt mode should clear any outer wall rim so material is not trapped behind the old border"
+    gameSource.includes("function clearTiltBoundaryPixels() {") &&
+    gameSource.includes("if (gravityState.strategy === \"family32\") clearTiltBoundaryPixels();"),
+    "tilt mode should clear the outer boundary ring so material is not trapped inside the canvas"
   );
 }
 
@@ -1166,6 +1166,33 @@ function testTiltGravityCanExitOpenEdges() {
     gravityMatch[1].includes("if (__shouldExitTiltWorld(x, y)) {") &&
     gravityMatch[1].includes("gameImagedata32[i] = BACKGROUND;"),
     "tilt gravity should let movers exit the world through an open boundary instead of treating the canvas edge as a solid wall"
+  );
+}
+
+function testTiltDefaultsOnAndClearsBoundaryPixels() {
+  const gameSource = read("scripts/game.js");
+  const menuSource = read("scripts/menu.js");
+
+  assert(
+    gameSource.includes('var gravityExperimentMode = "family32";') &&
+    gameSource.includes('strategy: "family32",'),
+    "game.js should default tilt gravity to family32 at startup"
+  );
+
+  assert(
+    gameSource.includes("function clearTiltBoundaryPixels() {") &&
+    gameSource.includes("gameImagedata32[x] = BACKGROUND;") &&
+    gameSource.includes("gameImagedata32[bottomIdx] = BACKGROUND;") &&
+    gameSource.includes("gameImagedata32[leftIdx] = BACKGROUND;") &&
+    gameSource.includes("gameImagedata32[rightIdx] = BACKGROUND;") &&
+    gameSource.includes("if (gravityState.strategy === \"family32\") clearTiltBoundaryPixels();") &&
+    gameSource.includes("if (gravityState.strategy === \"family32\") {\n    clearTiltBoundaryPixels();"),
+    "family32 should clear the outer boundary ring so particles cannot pile up against a hidden canvas wall"
+  );
+
+  assert(
+    menuSource.includes("const tiltDefaultEnabled = true;"),
+    "menu.js should reflect tilt as enabled by default in the UI"
   );
 }
 
@@ -1235,6 +1262,7 @@ module.exports = {
   testPureHorizontalTiltKeepsGasHorizontal,
   testTiltActiveBandsExist,
   testTiltGravityCanExitOpenEdges,
+  testTiltDefaultsOnAndClearsBoundaryPixels,
   testTreeParticlesPersistIntoWorld,
   testWetSoilUsesGravityRelativeTreeSupport
 };

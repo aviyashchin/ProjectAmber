@@ -34,6 +34,7 @@ const {
   testPureHorizontalTiltKeepsGasHorizontal,
   testTiltActiveBandsExist,
   testTiltGravityCanExitOpenEdges,
+  testTiltDefaultsOnAndClearsBoundaryPixels,
   testTreeParticlesPersistIntoWorld,
   testWetSoilUsesGravityRelativeTreeSupport
 } = require("./bellamyUniverse.test.js");
@@ -74,6 +75,7 @@ try {
   testPureHorizontalTiltKeepsGasHorizontal();
   testTiltActiveBandsExist();
   testTiltGravityCanExitOpenEdges();
+  testTiltDefaultsOnAndClearsBoundaryPixels();
   testTreeParticlesPersistIntoWorld();
   testWetSoilUsesGravityRelativeTreeSupport();
   console.log("PASS Bellamy universe regression");
