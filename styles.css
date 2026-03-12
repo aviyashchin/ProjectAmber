@@ -5,7 +5,7 @@ html {
 canvas {
   padding-left: 0;
   padding-right: 0;
-  border: 1px solid grey;
+  border: none;
   box-sizing: border-box;
   display: block;
   flex: 0 0 auto;
@@ -97,16 +97,6 @@ a:hover {
   gap: 10px;
   box-sizing: border-box;
   padding: 8px 8px 16px;
-}
-
-body.borderless canvas {
-  border: none;
-}
-
-body.borderless #menuWrapper {
-  border-left: none;
-  border-right: none;
-  border-bottom: none;
 }
 
 #elementPalette {

@@ -40,23 +40,31 @@ function testPaletteUsesBellamyGroups() {
   );
 }
 
-function testBorderCheckboxExists() {
+function testCanvasBorderIsAlwaysRemoved() {
   const menuSource = getMenuSource();
   const indexSource = getIndexSource();
+  const stylesSource = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 
   assert(
-    indexSource.includes('id="borderCheckbox"'),
-    "index.html should provide a borderCheckbox control"
+    !indexSource.includes('id="borderCheckbox"'),
+    "index.html should no longer provide a borderCheckbox control"
   );
 
   assert(
-    menuSource.includes('const borderCheckbox = document.getElementById("borderCheckbox");') &&
-    menuSource.includes('document.body.classList.toggle("borderless", !borderCheckbox.checked);'),
-    "menu.js should wire the border checkbox to a borderless body class"
+    !menuSource.includes('const borderCheckbox = document.getElementById("borderCheckbox");') &&
+    !menuSource.includes('document.body.classList.toggle("borderless", !borderCheckbox.checked);'),
+    "menu.js should no longer wire a border checkbox"
+  );
+
+  assert(
+    stylesSource.includes("canvas {") &&
+    stylesSource.includes("border: none;") &&
+    !stylesSource.includes("body.borderless canvas"),
+    "styles.css should keep the canvas borderless by default"
   );
 }
 
 module.exports = {
   testPaletteUsesBellamyGroups,
-  testBorderCheckboxExists
+  testCanvasBorderIsAlwaysRemoved
 };

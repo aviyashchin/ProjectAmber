@@ -32,7 +32,8 @@ const {
   testElementMetadataUsesCompactLookup,
   testHotLoopFastPathsExist,
   testPureHorizontalTiltKeepsGasHorizontal,
-  testTiltActiveBandsExist
+  testTiltActiveBandsExist,
+  testTreeParticlesPersistIntoWorld
 } = require("./bellamyUniverse.test.js");
 
 try {
@@ -70,6 +71,7 @@ try {
   testHotLoopFastPathsExist();
   testPureHorizontalTiltKeepsGasHorizontal();
   testTiltActiveBandsExist();
+  testTreeParticlesPersistIntoWorld();
   console.log("PASS Bellamy universe regression");
 } catch (error) {
   console.error("FAIL Bellamy universe regression");

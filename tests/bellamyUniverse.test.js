@@ -183,7 +183,7 @@ function testWeatherStateAndForceFamilies() {
   const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
   assert(
-    sunActionMatch[1].includes("if (random() < 80) return;") &&
+    sunActionMatch[1].includes("if (random() < 76) return;") &&
     !sunActionMatch[1].includes("addTemperatureAt(") &&
     sunActionMatch[1].includes("__tryApplyHeatReaction(idx)") &&
     sunActionMatch[1].includes("gameImagedata32[idx] = SOIL;"),
@@ -269,9 +269,9 @@ function testForceAndGrowthSystemsAreThrottled() {
   const wetSoilActionMatch = elementsSource.match(/function WET_SOIL_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
 
   assert(
-    sunActionMatch[1].includes("if (random() < 80) return;") &&
+    sunActionMatch[1].includes("if (random() < 76) return;") &&
     antiGravityActionMatch[1].includes("if (random() < 80) return;") &&
-    cryoActionMatch[1].includes("if (random() < 88) return;"),
+    cryoActionMatch[1].includes("if (random() < 90) return;"),
     "force tools should skip most frames in performance-first mode"
   );
 
@@ -362,15 +362,17 @@ function testTiltGravityExperimentSwitchExists() {
     menuSource.includes("const tiltStrengthValue = document.getElementById(\"tiltStrengthValue\")") &&
     menuSource.includes("function shouldEnableTiltByDefault() {") &&
     menuSource.includes("function enableTiltMotionInBackground() {") &&
+    menuSource.includes("function armDefaultTiltMotionEnable() {") &&
     menuSource.includes("window.projectAmberPlatform.device.enableTilt()") &&
     !menuSource.includes("await window.projectAmberPlatform.device.enableTilt()") &&
     menuSource.includes("const tiltDefaultEnabled = shouldEnableTiltByDefault();") &&
     menuSource.includes("if (tiltDefaultEnabled) {") &&
     menuSource.includes("window.setGravityExperimentMode(\"family32\", gravityBucketIndex);") &&
-    menuSource.includes("if (shouldEnableTiltByDefault()) enableTiltMotionInBackground();") &&
+    menuSource.includes("armDefaultTiltMotionEnable();") &&
+    menuSource.includes("document.addEventListener(\"pointerdown\", requestTiltMotionOnFirstGesture, { once: true, passive: true });") &&
     menuSource.includes("document.getElementById(\"tiltSceneSandButton\")") &&
     menuSource.includes("document.getElementById(\"tiltDirectionRightButton\")"),
-    "menu.js should default tilt on only for likely mobile sensor devices and only enable live motion on those devices without blocking the click handler"
+    "menu.js should default tilt on only for likely mobile sensor devices and arm motion permission from the first real gesture without blocking the click handler"
   );
 
   assert(
@@ -533,7 +535,7 @@ function testTiltGravityCandidatesStayLocal() {
   const torchActionMatch = elementsSource.match(/function TORCH_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   assert(torchActionMatch, "elements.js should contain TORCH_ACTION body");
   assert(
-    torchActionMatch[1].includes("produceTiltFire(x, y, i, 30)") &&
+    torchActionMatch[1].includes("produceTiltFire(x, y, i, 38)") &&
     !torchActionMatch[1].includes("doProducer(x, y, i, FIRE, true, 25)"),
     "TORCH_ACTION should produce fire in the tilt-aware rise direction"
   );
@@ -822,13 +824,13 @@ function testLocalReactionLookupTablesExist() {
 
   assert(
     elementsSource.includes("ELEMENT_HEAT_RESULT[__elementIndex(WATER)] = STEAM;") &&
-    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 16;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 20;") &&
     elementsSource.includes("ELEMENT_HEAT_RESULT[__elementIndex(ICE)] = WATER;") &&
-    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 14;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 18;") &&
     elementsSource.includes("ELEMENT_COLD_RESULT[__elementIndex(WATER)] = ICE;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 18;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 14;") &&
     elementsSource.includes("ELEMENT_COLD_RESULT[__elementIndex(ICE)] = CHILLED_ICE;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 14;"),
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 10;"),
     "elements.js should encode slightly stronger Sun/Cryo reactions in compact lookup tables"
   );
 
@@ -857,35 +859,59 @@ function testLocalReactionLookupTablesExist() {
 
 function testHotAndColdActionsAreSlightlyStronger() {
   const elementsSource = read("scripts/elements.js");
+  const iceActionMatch = elementsSource.match(/function ICE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const chilledIceActionMatch = elementsSource.match(/function CHILLED_ICE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   const torchActionMatch = elementsSource.match(/function TORCH_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   const fireActionMatch = elementsSource.match(/function FIRE_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+  const sunActionMatch = elementsSource.match(/function SUN_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
   const cryoActionMatch = elementsSource.match(/function CRYO_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
 
+  assert(iceActionMatch, "elements.js should contain ICE_ACTION body");
+  assert(chilledIceActionMatch, "elements.js should contain CHILLED_ICE_ACTION body");
   assert(torchActionMatch, "elements.js should contain TORCH_ACTION body");
   assert(fireActionMatch, "elements.js should contain FIRE_ACTION body");
+  assert(sunActionMatch, "elements.js should contain SUN_ACTION body");
   assert(cryoActionMatch, "elements.js should contain CRYO_ACTION body");
 
   assert(
-    torchActionMatch[1].includes("produceTiltFire(x, y, i, 30);"),
-    "TORCH_ACTION should emit a slightly hotter flame stream"
+    torchActionMatch[1].includes("produceTiltFire(x, y, i, 38);"),
+    "TORCH_ACTION should emit a hotter flame stream"
   );
 
   assert(
-    fireActionMatch[1].includes("if (random() < 24)") &&
-    fireActionMatch[1].includes("if (random() < 85)") &&
-    fireActionMatch[1].includes("if (random() < 55)"),
+    fireActionMatch[1].includes("if (random() < 28)") &&
+    fireActionMatch[1].includes("if (random() < 90)") &&
+    fireActionMatch[1].includes("if (random() < 62)"),
     "FIRE_ACTION should be tuned slightly hotter without changing its local shape"
   );
 
   assert(
-    cryoActionMatch[1].includes("if (random() < 88) return;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 18;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(RAIN)] = 18;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(STEAM)] = 14;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(CLOUD)] = 10;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 14;") &&
-    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(LAVA)] = 20;"),
-    "CRYO should stay distinct, but softer than the previous over-aggressive cold tuning"
+    sunActionMatch[1].includes("if (random() < 76) return;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 20;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(RAIN)] = 20;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(CLOUD)] = 12;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 18;") &&
+    elementsSource.includes("ELEMENT_HEAT_CHANCE[__elementIndex(CHILLED_ICE)] = 24;"),
+    "SUN should be rebalanced upward with stronger local heat reactions"
+  );
+
+  assert(
+    cryoActionMatch[1].includes("if (random() < 90) return;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 14;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(RAIN)] = 14;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(STEAM)] = 12;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(CLOUD)] = 8;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 10;") &&
+    elementsSource.includes("ELEMENT_COLD_CHANCE[__elementIndex(LAVA)] = 16;"),
+    "CRYO should stay distinct, but softer so heat and cold feel more balanced"
+  );
+
+  assert(
+    iceActionMatch[1].includes("bordering(x, y, i, TORCH) !== -1") &&
+    iceActionMatch[1].includes("bordering(x, y, i, SUN) !== -1") &&
+    chilledIceActionMatch[1].includes("bordering(x, y, i, TORCH) !== -1") &&
+    chilledIceActionMatch[1].includes("bordering(x, y, i, SUN) !== -1"),
+    "ice should react directly to nearby torch and sun heat without a separate temperature field"
   );
 }
 
@@ -1117,6 +1143,19 @@ function testTiltActiveBandsExist() {
   );
 }
 
+function testTreeParticlesPersistIntoWorld() {
+  const particlesSource = read("scripts/particles.js");
+  const treeActionMatch = particlesSource.match(/function TREE_PARTICLE_ACTION\(particle\) \{([\s\S]*?)\n\}/);
+
+  assert(treeActionMatch, "particles.js should contain TREE_PARTICLE_ACTION body");
+  assert(
+    particlesSource.includes("function __stampTreeParticle(") &&
+    treeActionMatch[1].includes("__stampTreeParticle(") &&
+    treeActionMatch[1].includes("particle.color === LEAF ? LEAF : BRANCH"),
+    "TREE_PARTICLE_ACTION should stamp persistent branch and leaf pixels into the main world buffer"
+  );
+}
+
 module.exports = {
   testUniverseScriptsAreLoaded,
   testWeatherElementsExist,
@@ -1151,5 +1190,6 @@ module.exports = {
   testElementMetadataUsesCompactLookup,
   testHotLoopFastPathsExist,
   testPureHorizontalTiltKeepsGasHorizontal,
-  testTiltActiveBandsExist
+  testTiltActiveBandsExist,
+  testTreeParticlesPersistIntoWorld
 };

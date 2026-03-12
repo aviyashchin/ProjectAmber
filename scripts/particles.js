@@ -451,16 +451,58 @@ function TREE_PARTICLE_INIT(particle) {
   TREE_TYPES[particle.treeType].initTreeParticle(particle, null);
 }
 
+function __paintTreePixel(x, y, color) {
+  const px = Math.round(x);
+  const py = Math.round(y);
+  if (px < 0 || px > MAX_X_IDX || py < 0 || py > MAX_Y_IDX) return;
+
+  const idx = px + py * width;
+  if (gameImagedata32[idx] === WALL) return;
+  gameImagedata32[idx] = color;
+}
+
+function __stampTreeParticle(x0, y0, x1, y1, color, size) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+  const stepX = dx / steps;
+  const stepY = dy / steps;
+
+  var x = x0;
+  var y = y0;
+  for (var step = 0; step <= steps; step++) {
+    __paintTreePixel(x, y, color);
+    if (size >= 3) {
+      __paintTreePixel(x - 1, y, color);
+      __paintTreePixel(x + 1, y, color);
+      __paintTreePixel(x, y - 1, color);
+      __paintTreePixel(x, y + 1, color);
+    }
+    x += stepX;
+    y += stepY;
+  }
+}
+
 function TREE_PARTICLE_ACTION(particle) {
+  const prevX = particle.x;
+  const prevY = particle.y;
   offscreenParticleCtx.beginPath();
   offscreenParticleCtx.lineWidth = particle.size;
   offscreenParticleCtx.strokeStyle = particle.rgbaColor;
   offscreenParticleCtx.lineCap = "round";
-  offscreenParticleCtx.moveTo(particle.x, particle.y);
+  offscreenParticleCtx.moveTo(prevX, prevY);
   particle.x += particle.xVelocity;
   particle.y += particle.yVelocity;
   offscreenParticleCtx.lineTo(particle.x, particle.y);
   offscreenParticleCtx.stroke();
+  __stampTreeParticle(
+    prevX,
+    prevY,
+    particle.x,
+    particle.y,
+    particle.color === LEAF ? LEAF : BRANCH,
+    particle.size
+  );
 
   /* Don't grow through WALL */
   if (particle.aboutToHit() === WALL) {

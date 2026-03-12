@@ -271,15 +271,6 @@ function initMenu() {
     OVERWRITE_ENABLED = overwriteCheckbox.checked;
   });
 
-  const borderCheckbox = document.getElementById("borderCheckbox");
-  document.body.classList.toggle("borderless", !borderCheckbox.checked);
-  borderCheckbox.addEventListener("click", function () {
-    document.body.classList.toggle("borderless", !borderCheckbox.checked);
-    if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
-      window.projectAmberPlatform.haptics.light();
-    }
-  });
-
   const hapticsButton = document.getElementById("hapticsButton");
   hapticsButton.addEventListener("click", function () {
     if (window.projectAmberPlatform && window.projectAmberPlatform.haptics) {
@@ -323,10 +314,21 @@ function initMenu() {
     Promise.resolve(window.projectAmberPlatform.device.enableTilt()).catch(function () {});
   }
 
+  function armDefaultTiltMotionEnable() {
+    if (!shouldEnableTiltByDefault()) return;
+
+    function requestTiltMotionOnFirstGesture() {
+      if (!tiltModeCheckbox.checked) return;
+      enableTiltMotionInBackground();
+    }
+
+    document.addEventListener("pointerdown", requestTiltMotionOnFirstGesture, { once: true, passive: true });
+  }
+
   const tiltDefaultEnabled = shouldEnableTiltByDefault();
   if (tiltDefaultEnabled) {
     window.setGravityExperimentMode("family32", gravityBucketIndex);
-    enableTiltMotionInBackground();
+    armDefaultTiltMotionEnable();
   }
 
   tiltModeCheckbox.checked =
@@ -341,7 +343,7 @@ function initMenu() {
   tiltModeCheckbox.addEventListener("click", function () {
     if (tiltModeCheckbox.checked) {
       window.setGravityExperimentMode("family32", gravityBucketIndex);
-      if (shouldEnableTiltByDefault()) enableTiltMotionInBackground();
+      armDefaultTiltMotionEnable();
     } else window.setGravityExperimentMode("default");
     syncTiltDebugControls();
   });

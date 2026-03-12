@@ -359,28 +359,28 @@ function initElementPhysics() {
   __setNeighborFlags(ZOMBIE, NEIGHBOR_FLAG_FLAME_KEEPER);
 
   ELEMENT_HEAT_RESULT[__elementIndex(WATER)] = STEAM;
-  ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 16;
+  ELEMENT_HEAT_CHANCE[__elementIndex(WATER)] = 20;
   ELEMENT_HEAT_RESULT[__elementIndex(RAIN)] = STEAM;
-  ELEMENT_HEAT_CHANCE[__elementIndex(RAIN)] = 16;
+  ELEMENT_HEAT_CHANCE[__elementIndex(RAIN)] = 20;
   ELEMENT_HEAT_RESULT[__elementIndex(CLOUD)] = STEAM;
-  ELEMENT_HEAT_CHANCE[__elementIndex(CLOUD)] = 10;
+  ELEMENT_HEAT_CHANCE[__elementIndex(CLOUD)] = 12;
   ELEMENT_HEAT_RESULT[__elementIndex(ICE)] = WATER;
-  ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 14;
+  ELEMENT_HEAT_CHANCE[__elementIndex(ICE)] = 18;
   ELEMENT_HEAT_RESULT[__elementIndex(CHILLED_ICE)] = ICE;
-  ELEMENT_HEAT_CHANCE[__elementIndex(CHILLED_ICE)] = 18;
+  ELEMENT_HEAT_CHANCE[__elementIndex(CHILLED_ICE)] = 24;
 
   ELEMENT_COLD_RESULT[__elementIndex(WATER)] = ICE;
-  ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 18;
+  ELEMENT_COLD_CHANCE[__elementIndex(WATER)] = 14;
   ELEMENT_COLD_RESULT[__elementIndex(RAIN)] = ICE;
-  ELEMENT_COLD_CHANCE[__elementIndex(RAIN)] = 18;
+  ELEMENT_COLD_CHANCE[__elementIndex(RAIN)] = 14;
   ELEMENT_COLD_RESULT[__elementIndex(STEAM)] = CLOUD;
-  ELEMENT_COLD_CHANCE[__elementIndex(STEAM)] = 14;
+  ELEMENT_COLD_CHANCE[__elementIndex(STEAM)] = 12;
   ELEMENT_COLD_RESULT[__elementIndex(CLOUD)] = RAIN;
-  ELEMENT_COLD_CHANCE[__elementIndex(CLOUD)] = 10;
+  ELEMENT_COLD_CHANCE[__elementIndex(CLOUD)] = 8;
   ELEMENT_COLD_RESULT[__elementIndex(ICE)] = CHILLED_ICE;
-  ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 14;
+  ELEMENT_COLD_CHANCE[__elementIndex(ICE)] = 10;
   ELEMENT_COLD_RESULT[__elementIndex(LAVA)] = ROCK;
-  ELEMENT_COLD_CHANCE[__elementIndex(LAVA)] = 20;
+  ELEMENT_COLD_CHANCE[__elementIndex(LAVA)] = 16;
 }
 
 function initElements() {
@@ -559,7 +559,7 @@ function FIRE_ACTION(x, y, i) {
   }
 
   /* plant */
-  if (random() < 24) {
+  if (random() < 28) {
     const plantLoc = borderingAdjacent(x, y, i, PLANT);
     if (plantLoc !== -1) {
       gameImagedata32[plantLoc] = FIRE;
@@ -584,7 +584,7 @@ function FIRE_ACTION(x, y, i) {
   }
 
   /* fuse */
-  if (random() < 85) {
+  if (random() < 90) {
     const fuseLoc = borderingAdjacent(x, y, i, FUSE);
     if (fuseLoc !== -1) {
       gameImagedata32[fuseLoc] = FIRE;
@@ -645,7 +645,7 @@ function FIRE_ACTION(x, y, i) {
   }
 
   /* rising fire */
-  if (random() < 55) {
+  if (random() < 62) {
     const riseLoc = findTiltRiseLoc(x, y, i);
     if (riseLoc !== -1) {
       gameImagedata32[riseLoc] = FIRE;
@@ -692,7 +692,7 @@ function WELL_ACTION(x, y, i) {
 }
 
 function TORCH_ACTION(x, y, i) {
-  produceTiltFire(x, y, i, 30);
+  produceTiltFire(x, y, i, 38);
 }
 
 function GUNPOWDER_ACTION(x, y, i) {
@@ -843,6 +843,13 @@ function ICE_ACTION(x, y, i) {
     }
   }
 
+  if (random() < 30) {
+    if (bordering(x, y, i, TORCH) !== -1 || bordering(x, y, i, SUN) !== -1) {
+      gameImagedata32[i] = WATER;
+      return;
+    }
+  }
+
   /* Fast melt from LAVA */
   if (random() < 50) {
     if (bordering(x, y, i, LAVA) !== -1) {
@@ -868,7 +875,9 @@ function CHILLED_ICE_ACTION(x, y, i) {
     bordering(x, y, i, SALT_WATER) !== -1 ||
     bordering(x, y, i, LAVA) !== -1 ||
     bordering(x, y, i, FIRE) !== -1 ||
-    bordering(x, y, i, STEAM) !== -1
+    bordering(x, y, i, STEAM) !== -1 ||
+    bordering(x, y, i, TORCH) !== -1 ||
+    bordering(x, y, i, SUN) !== -1
   ) {
     gameImagedata32[i] = ICE;
     return;
@@ -1121,7 +1130,7 @@ function RAIN_ACTION(x, y, i) {
 }
 
 function SUN_ACTION(x, y, i) {
-  if (random() < 80) return;
+  if (random() < 76) return;
 
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);
@@ -1179,7 +1188,7 @@ function ANTI_GRAVITY_ACTION(x, y, i) {
 }
 
 function CRYO_ACTION(x, y, i) {
-  if (random() < 88) return;
+  if (random() < 90) return;
 
   const xStart = Math.max(x - 1, 0);
   const yStart = Math.max(y - 1, 0);

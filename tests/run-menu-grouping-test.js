@@ -1,11 +1,11 @@
 const {
   testPaletteUsesBellamyGroups,
-  testBorderCheckboxExists
+  testCanvasBorderIsAlwaysRemoved
 } = require("./menuGrouping.test.js");
 
 try {
   testPaletteUsesBellamyGroups();
-  testBorderCheckboxExists();
+  testCanvasBorderIsAlwaysRemoved();
   console.log("PASS menu grouping regression");
 } catch (error) {
   console.error("FAIL menu grouping regression");
