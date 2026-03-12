@@ -1156,6 +1156,19 @@ function testTiltActiveBandsExist() {
   );
 }
 
+function testTiltGravityCanExitOpenEdges() {
+  const elementsSource = read("scripts/elements.js");
+  const gravityMatch = elementsSource.match(/function doGravity\(x, y, i, fallAdjacent, chance\) \{([\s\S]*?)\n\}/);
+
+  assert(gravityMatch, "elements.js should contain doGravity body");
+  assert(
+    elementsSource.includes("function __shouldExitTiltWorld(x, y) {") &&
+    gravityMatch[1].includes("if (__shouldExitTiltWorld(x, y)) {") &&
+    gravityMatch[1].includes("gameImagedata32[i] = BACKGROUND;"),
+    "tilt gravity should let movers exit the world through an open boundary instead of treating the canvas edge as a solid wall"
+  );
+}
+
 function testTreeParticlesPersistIntoWorld() {
   const particlesSource = read("scripts/particles.js");
   const treeActionMatch = particlesSource.match(/function TREE_PARTICLE_ACTION\(particle\) \{([\s\S]*?)\n\}/);
@@ -1221,6 +1234,7 @@ module.exports = {
   testHotLoopFastPathsExist,
   testPureHorizontalTiltKeepsGasHorizontal,
   testTiltActiveBandsExist,
+  testTiltGravityCanExitOpenEdges,
   testTreeParticlesPersistIntoWorld,
   testWetSoilUsesGravityRelativeTreeSupport
 };

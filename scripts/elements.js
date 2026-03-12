@@ -285,6 +285,15 @@ function __shouldUseTiltSettledSkip(elem) {
   return ELEMENT_TILT_SETTLE[ELEMENT_META_INDEX[elem & 0x30303]] !== 0;
 }
 
+function __shouldExitTiltWorld(x, y) {
+  if (__frameGravityIsBaseline || gravityExperimentMode !== "family32") return false;
+  if (__frameGravityVectorX < 0 && x === 0) return true;
+  if (__frameGravityVectorX > 0 && x === MAX_X_IDX) return true;
+  if (__frameGravityVectorY < 0 && y === 0) return true;
+  if (__frameGravityVectorY > 0 && y === MAX_Y_IDX) return true;
+  return false;
+}
+
 function __tiltGasThrottleChance(baseChance) {
   if (__frameGravityIsBaseline || gravityExperimentMode !== "family32") return baseChance;
   return Math.min(95, baseChance + 8);
@@ -2304,15 +2313,20 @@ function doGravity(x, y, i, fallAdjacent, chance) {
 
   if (__frameGravityFlat !== null) {
     const experimentalMove = __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, BACKGROUND);
-    if (experimentalMove !== -1) {
-      __clearTiltSettledSkip(experimentalMove);
-      __clearTiltSettledSkip(i);
-      gameImagedata32[experimentalMove] = gameImagedata32[i];
-      gameImagedata32[i] = BACKGROUND;
-      return true;
+      if (experimentalMove !== -1) {
+        __clearTiltSettledSkip(experimentalMove);
+        __clearTiltSettledSkip(i);
+        gameImagedata32[experimentalMove] = gameImagedata32[i];
+        gameImagedata32[i] = BACKGROUND;
+        return true;
+      }
+      if (__shouldExitTiltWorld(x, y)) {
+        __clearTiltSettledSkip(i);
+        gameImagedata32[i] = BACKGROUND;
+        return true;
+      }
+      return false;
     }
-    return false;
-  }
 
   if (y === MAX_Y_IDX) {
     gameImagedata32[i] = BACKGROUND;
