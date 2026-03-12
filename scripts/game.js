@@ -228,6 +228,23 @@ function resetActiveBands() {
   activeColMax = MAX_X_IDX;
 }
 
+function clearTiltBorderWalls() {
+  var x;
+  for (x = 0; x <= MAX_X_IDX; x++) {
+    if (gameImagedata32[x] === WALL) gameImagedata32[x] = BACKGROUND;
+    const bottomIdx = x + MAX_Y_IDX * width;
+    if (gameImagedata32[bottomIdx] === WALL) gameImagedata32[bottomIdx] = BACKGROUND;
+  }
+
+  var y;
+  for (y = 0; y <= MAX_Y_IDX; y++) {
+    const leftIdx = y * width;
+    if (gameImagedata32[leftIdx] === WALL) gameImagedata32[leftIdx] = BACKGROUND;
+    const rightIdx = leftIdx + MAX_X_IDX;
+    if (gameImagedata32[rightIdx] === WALL) gameImagedata32[rightIdx] = BACKGROUND;
+  }
+}
+
 function beginActiveBands() {
   nextActiveRowMin = MAX_Y_IDX;
   nextActiveRowMax = -1;
@@ -265,6 +282,7 @@ function syncGravityState() {
   gravityState.bucket = bucket;
   gravityState.family = Math.floor((bucket * 8) / bucketCount) & 7;
   gravityState.strength = gravityStrength;
+  if (gravityState.strategy === "family32") clearTiltBorderWalls();
 }
 
 function syncTiltModeCheckbox() {

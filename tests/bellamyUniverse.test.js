@@ -1148,6 +1148,12 @@ function testTiltActiveBandsExist() {
     gameSource.includes("if (elem !== WALL) {\n            noteActiveBand(X, y);"),
     "active bands should ignore WALL so static boundaries do not keep the tilt sweep artificially wide"
   );
+
+  assert(
+    gameSource.includes("function clearTiltBorderWalls() {") &&
+    gameSource.includes("if (gravityState.strategy === \"family32\") clearTiltBorderWalls();"),
+    "tilt mode should clear any outer wall rim so material is not trapped behind the old border"
+  );
 }
 
 function testTreeParticlesPersistIntoWorld() {
