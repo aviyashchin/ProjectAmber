@@ -1357,14 +1357,24 @@ function WET_SOIL_ACTION(x, y, i) {
       particles.particleCounts[TREE_PARTICLE] < 6 &&
       random() >= 85 &&
       aboveAdjacent(x, y, i, BACKGROUND) !== -1 &&
-      (belowAdjacent(x, y, i, SOIL) !== -1 ||
-        belowAdjacent(x, y, i, WALL) !== -1)
+      __hasTreeSupport(x, y, i)
     ) {
       if (particles.addActiveParticle(TREE_PARTICLE, x, y, i)) {
         gameImagedata32[i] = SOIL;
       }
     }
   }
+}
+
+function __hasTreeSupport(x, y, i) {
+  if (__frameGravityIsBaseline || __frameGravityFlat === null) {
+    return belowAdjacent(x, y, i, SOIL) !== -1 || belowAdjacent(x, y, i, WALL) !== -1;
+  }
+
+  return (
+    __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, SOIL) !== -1 ||
+    __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, WALL) !== -1
+  );
 }
 
 function BRANCH_ACTION(x, y, i) {

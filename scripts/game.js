@@ -658,11 +658,11 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i--;
           continue;
         }
-        noteActiveBand(x, Y);
         if (elem === WALL) {
           i--;
           continue;
         }
+        noteActiveBand(x, Y);
         if (elem === SAND) SAND_ACTION(x, Y, i);
         else if (elem === WATER) WATER_ACTION(x, Y, i);
         else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
@@ -680,11 +680,11 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i++;
           continue;
         }
-        noteActiveBand(x, Y);
         if (elem === WALL) {
           i++;
           continue;
         }
+        noteActiveBand(x, Y);
         if (elem === SAND) SAND_ACTION(x, Y, i);
         else if (elem === WATER) WATER_ACTION(x, Y, i);
         else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
@@ -702,11 +702,11 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i--;
           continue;
         }
-        noteActiveBand(x, Y);
         if (elem === WALL) {
           i--;
           continue;
         }
+        noteActiveBand(x, Y);
         if (elem === SAND) SAND_ACTION(x, Y, i);
         else if (elem === WATER) WATER_ACTION(x, Y, i);
         else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
@@ -724,11 +724,11 @@ function updateGameRows(yStart, yStop, yStep, direction) {
           i++;
           continue;
         }
-        noteActiveBand(x, Y);
         if (elem === WALL) {
           i++;
           continue;
         }
+        noteActiveBand(x, Y);
         if (elem === SAND) SAND_ACTION(x, Y, i);
         else if (elem === WATER) WATER_ACTION(x, Y, i);
         else if (elem === SALT_WATER) SALT_WATER_ACTION(x, Y, i);
@@ -754,8 +754,8 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = MAX_Y_IDX; y !== -1; y--) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          noteActiveBand(X, y);
           if (elem !== WALL) {
+            noteActiveBand(X, y);
             if (elem === SAND) SAND_ACTION(X, y, i);
             else if (elem === WATER) WATER_ACTION(X, y, i);
             else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
@@ -772,8 +772,8 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = 0; y !== height; y++) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          noteActiveBand(X, y);
           if (elem !== WALL) {
+            noteActiveBand(X, y);
             if (elem === SAND) SAND_ACTION(X, y, i);
             else if (elem === WATER) WATER_ACTION(X, y, i);
             else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
@@ -790,8 +790,8 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = MAX_Y_IDX; y !== -1; y--) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          noteActiveBand(X, y);
           if (elem !== WALL) {
+            noteActiveBand(X, y);
             if (elem === SAND) SAND_ACTION(X, y, i);
             else if (elem === WATER) WATER_ACTION(X, y, i);
             else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);
@@ -808,8 +808,8 @@ function updateGameColumns(xStart, xStop, xStep, direction) {
       for (y = 0; y !== height; y++) {
         const elem = gameImagedata32[i];
         if (elem !== BACKGROUND) {
-          noteActiveBand(X, y);
           if (elem !== WALL) {
+            noteActiveBand(X, y);
             if (elem === SAND) SAND_ACTION(X, y, i);
             else if (elem === WATER) WATER_ACTION(X, y, i);
             else if (elem === SALT_WATER) SALT_WATER_ACTION(X, y, i);

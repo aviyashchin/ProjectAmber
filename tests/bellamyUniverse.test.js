@@ -1141,6 +1141,13 @@ function testTiltActiveBandsExist() {
     spigotsSource.includes("if (typeof resetActiveBands === \"function\") resetActiveBands();"),
     "user strokes and spigots should reopen the active tilt band when they inject new pixels"
   );
+
+  assert(
+    gameSource.includes("if (elem === WALL) {\n          i--;\n          continue;\n        }\n        noteActiveBand(x, Y);") &&
+    gameSource.includes("if (elem === WALL) {\n          i++;\n          continue;\n        }\n        noteActiveBand(x, Y);") &&
+    gameSource.includes("if (elem !== WALL) {\n            noteActiveBand(X, y);"),
+    "active bands should ignore WALL so static boundaries do not keep the tilt sweep artificially wide"
+  );
 }
 
 function testTreeParticlesPersistIntoWorld() {
@@ -1153,6 +1160,20 @@ function testTreeParticlesPersistIntoWorld() {
     treeActionMatch[1].includes("__stampTreeParticle(") &&
     treeActionMatch[1].includes("particle.color === LEAF ? LEAF : BRANCH"),
     "TREE_PARTICLE_ACTION should stamp persistent branch and leaf pixels into the main world buffer"
+  );
+}
+
+function testWetSoilUsesGravityRelativeTreeSupport() {
+  const elementsSource = read("scripts/elements.js");
+  const wetSoilActionMatch = elementsSource.match(/function WET_SOIL_ACTION\(x, y, i\) \{([\s\S]*?)\n\}/);
+
+  assert(wetSoilActionMatch, "elements.js should contain WET_SOIL_ACTION body");
+  assert(
+    elementsSource.includes("function __hasTreeSupport(x, y, i) {") &&
+    wetSoilActionMatch[1].includes("__hasTreeSupport(x, y, i)") &&
+    !wetSoilActionMatch[1].includes("belowAdjacent(x, y, i, SOIL)") &&
+    !wetSoilActionMatch[1].includes("belowAdjacent(x, y, i, WALL)"),
+    "WET_SOIL_ACTION should use gravity-relative support checks when spawning tree particles"
   );
 }
 
@@ -1191,5 +1212,6 @@ module.exports = {
   testHotLoopFastPathsExist,
   testPureHorizontalTiltKeepsGasHorizontal,
   testTiltActiveBandsExist,
-  testTreeParticlesPersistIntoWorld
+  testTreeParticlesPersistIntoWorld,
+  testWetSoilUsesGravityRelativeTreeSupport
 };
