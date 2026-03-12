@@ -1353,14 +1353,14 @@ function WET_SOIL_ACTION(x, y, i) {
       return;
     }
 
-    if (
-      particles.particleCounts[TREE_PARTICLE] < 6 &&
-      random() >= 85 &&
-      aboveAdjacent(x, y, i, BACKGROUND) !== -1 &&
-      __hasTreeSupport(x, y, i)
-    ) {
-      if (particles.addActiveParticle(TREE_PARTICLE, x, y, i)) {
-        gameImagedata32[i] = SOIL;
+      if (
+        particles.particleCounts[TREE_PARTICLE] < 6 &&
+        random() >= 85 &&
+        __hasTreeGrowthSpace(x, y, i) &&
+        __hasTreeSupport(x, y, i)
+      ) {
+        if (particles.addActiveParticle(TREE_PARTICLE, x, y, i)) {
+          gameImagedata32[i] = SOIL;
       }
     }
   }
@@ -1375,6 +1375,11 @@ function __hasTreeSupport(x, y, i) {
     __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, SOIL) !== -1 ||
     __findFlatMove(x, y, i, __frameGravityFlat, __frameGravityFlatAlt, __frameGravityFlatLen, WALL) !== -1
   );
+}
+
+function __hasTreeGrowthSpace(x, y, i) {
+  if (__frameGravityIsBaseline) return aboveAdjacent(x, y, i, BACKGROUND) !== -1;
+  return findTiltRiseLoc(x, y, i) !== -1;
 }
 
 function BRANCH_ACTION(x, y, i) {

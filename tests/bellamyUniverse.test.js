@@ -1170,10 +1170,13 @@ function testWetSoilUsesGravityRelativeTreeSupport() {
   assert(wetSoilActionMatch, "elements.js should contain WET_SOIL_ACTION body");
   assert(
     elementsSource.includes("function __hasTreeSupport(x, y, i) {") &&
+    elementsSource.includes("function __hasTreeGrowthSpace(x, y, i) {") &&
     wetSoilActionMatch[1].includes("__hasTreeSupport(x, y, i)") &&
+    wetSoilActionMatch[1].includes("__hasTreeGrowthSpace(x, y, i)") &&
     !wetSoilActionMatch[1].includes("belowAdjacent(x, y, i, SOIL)") &&
-    !wetSoilActionMatch[1].includes("belowAdjacent(x, y, i, WALL)"),
-    "WET_SOIL_ACTION should use gravity-relative support checks when spawning tree particles"
+    !wetSoilActionMatch[1].includes("belowAdjacent(x, y, i, WALL)") &&
+    !wetSoilActionMatch[1].includes("aboveAdjacent(x, y, i, BACKGROUND)"),
+    "WET_SOIL_ACTION should use gravity-relative support and growth-space checks when spawning tree particles"
   );
 }
 
